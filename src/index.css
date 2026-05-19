@@ -715,52 +715,48 @@ tr:hover td { background: var(--table-row-hover); }
   .badge { font-size: 11px; padding: 2px 7px; }
 }
 /* =============================================
-   CORRECCIONES PUNTUALES
+   MOBILE TABLE: COLUMNAS ESPECÍFICAS
    ============================================= */
 
-/* 1. Hamburger: líneas verticales (apiladas), no horizontales */
-.hamburger {
-  flex-direction: column;
-  align-items: center;
-}
-
-/* 2. Sticky topbar: overflow-x: clip no rompe position sticky */
-.main-content {
-  overflow-x: clip;
-}
-.page-content {
-  overflow-x: clip;
-}
-
-/* 3. Input date: ancho controlado, no se expande de más */
-input[type="date"] {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
-/* 4. Quitar gradiente de tabla (causaba efecto "dos páginas") */
-.table-wrapper::after {
-  display: none;
-}
-
-/* 5. Tablas simples (Categorías, Usuarios): sin min-width forzado */
-.table-container .table-wrapper table {
-  min-width: 400px;
-}
-
-/* 6. Mobile: tablas más compactas para que entren mejor */
+/* Fix fecha input que se sale del borde */
 @media (max-width: 768px) {
-  .table-container .table-wrapper table {
-    min-width: 320px;
+  input[type="date"] {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
-  th, td {
-    padding: 8px 10px;
-    font-size: 12px;
+}
+
+/* Reducir tamaño general de tablas en móvil */
+@media (max-width: 768px) {
+  table { min-width: unset; width: 100%; }
+  th { padding: 7px 5px; font-size: 10px; letter-spacing: 0; }
+  td { padding: 8px 5px; font-size: 11px; white-space: normal; word-break: break-word; }
+  .btn-sm { padding: 4px 8px; font-size: 11px; min-height: 30px; }
+  .badge { font-size: 10px; padding: 2px 5px; }
+}
+
+/* Clientes: mostrar solo Nombre, RUC, Teléfono, Acciones */
+@media (max-width: 768px) {
+  .table-clientes th:nth-child(1), .table-clientes td:nth-child(1),
+  .table-clientes th:nth-child(4), .table-clientes td:nth-child(4),
+  .table-clientes th:nth-child(6), .table-clientes td:nth-child(6),
+  .table-clientes th:nth-child(7), .table-clientes td:nth-child(7),
+  .table-clientes th:nth-child(8), .table-clientes td:nth-child(8) {
+    display: none;
   }
-  /* Texto vacío de tabla: no se corta */
-  .table-empty {
-    white-space: normal;
-    min-width: 0;
+}
+
+/* Animales: mostrar solo Cliente, Categoría, Ingreso, Precio, Acciones */
+@media (max-width: 768px) {
+  .table-animales th:nth-child(1),  .table-animales td:nth-child(1),
+  .table-animales th:nth-child(6),  .table-animales td:nth-child(6),
+  .table-animales th:nth-child(7),  .table-animales td:nth-child(7),
+  .table-animales th:nth-child(8),  .table-animales td:nth-child(8),
+  .table-animales th:nth-child(9),  .table-animales td:nth-child(9),
+  .table-animales th:nth-child(10), .table-animales td:nth-child(10),
+  .table-animales th:nth-child(11), .table-animales td:nth-child(11) {
+    display: none;
   }
 }
