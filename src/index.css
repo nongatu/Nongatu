@@ -727,6 +727,8 @@ tr:hover td { background: var(--table-row-hover); }
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
+    -webkit-appearance: none;
+    appearance: none;
   }
 }
 
