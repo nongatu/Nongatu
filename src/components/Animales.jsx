@@ -221,7 +221,7 @@ export default function Animales({ user }) {
 
       <div className="table-container">
         <div className="table-wrapper">
-          <table>
+          <table className="table-animales">
             <thead>
               <tr>
                 <th>ID</th><th>Cliente</th><th>Categoría</th><th>Ingreso</th>
