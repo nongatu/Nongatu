@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
-import Login from './Login.jsx'
-import Layout from './Layout.jsx'
-import Dashboard from './Dashboard.jsx'
-import Clientes from './Clientes.jsx'
-import Animales from './Animales.jsx'
-import Cobros from './Cobros.jsx'
-import Reportes from './Reportes.jsx'
-import Usuarios from './Usuarios.jsx'
-import Categorias from './Categorias.jsx'
+import Login from './components/Login.jsx'
+import Layout from './components/Layout.jsx'
+import Dashboard from './components/Dashboard.jsx'
+import Clientes from './components/Clientes.jsx'
+import Animales from './components/Animales.jsx'
+import Cobros from './components/Cobros.jsx'
+import Reportes from './components/Reportes.jsx'
+import Usuarios from './components/Usuarios.jsx'
+import Categorias from './components/Categorias.jsx'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -32,13 +32,8 @@ export default function App() {
   if (!user) return <Login onLogin={handleLogin} />
 
   const pages = {
-    dashboard: Dashboard,
-    clientes: Clientes,
-    animales: Animales,
-    cobros: Cobros,
-    reportes: Reportes,
-    usuarios: Usuarios,
-    categorias: Categorias,
+    dashboard: Dashboard, clientes: Clientes, animales: Animales,
+    cobros: Cobros, reportes: Reportes, usuarios: Usuarios, categorias: Categorias,
   }
   const PageComponent = pages[page] || Dashboard
 
