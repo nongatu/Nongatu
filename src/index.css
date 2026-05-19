@@ -172,6 +172,7 @@ img, video, input, select, textarea, button {
 /* Hamburger */
 .hamburger {
   display: none;
+  flex-direction: column;
   background: none;
   border: none;
   cursor: pointer;
