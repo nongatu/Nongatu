@@ -6,6 +6,7 @@ const NAV = [
   { key: 'animales', label: 'Animales' },
   { key: 'cobros', label: 'Cobros' },
   { key: 'reportes', label: 'Reportes' },
+  { key: 'categorias', label: 'Categorías' },
   { key: 'usuarios', label: 'Usuarios' },
 ]
 
@@ -15,8 +16,15 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
 
   const canSee = (key) => {
     if (user?.rol === 'Administrador') return true
-    const map = { clientes: 'ver_clientes', animales: 'ver_animales', cobros: 'ver_cobros', reportes: 'ver_reportes', usuarios: false }
-    return map[key] ? perms[map[key]] : key === 'dashboard'
+    const map = {
+      clientes: 'ver_clientes',
+      animales: 'ver_animales',
+      cobros: 'ver_cobros',
+      reportes: 'ver_reportes',
+      categorias: false,
+      usuarios: false,
+    }
+    return map[key] !== undefined ? (map[key] ? perms[map[key]] : false) : key === 'dashboard'
   }
 
   const navigate = (key) => { onNavigate(key); setOpen(false) }
