@@ -714,3 +714,53 @@ tr:hover td { background: var(--table-row-hover); }
   .btn { font-size: 13px; padding: 9px 12px; }
   .badge { font-size: 11px; padding: 2px 7px; }
 }
+/* =============================================
+   CORRECCIONES PUNTUALES
+   ============================================= */
+
+/* 1. Hamburger: líneas verticales (apiladas), no horizontales */
+.hamburger {
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 2. Sticky topbar: overflow-x: clip no rompe position sticky */
+.main-content {
+  overflow-x: clip;
+}
+.page-content {
+  overflow-x: clip;
+}
+
+/* 3. Input date: ancho controlado, no se expande de más */
+input[type="date"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* 4. Quitar gradiente de tabla (causaba efecto "dos páginas") */
+.table-wrapper::after {
+  display: none;
+}
+
+/* 5. Tablas simples (Categorías, Usuarios): sin min-width forzado */
+.table-container .table-wrapper table {
+  min-width: 400px;
+}
+
+/* 6. Mobile: tablas más compactas para que entren mejor */
+@media (max-width: 768px) {
+  .table-container .table-wrapper table {
+    min-width: 320px;
+  }
+  th, td {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  /* Texto vacío de tabla: no se corta */
+  .table-empty {
+    white-space: normal;
+    min-width: 0;
+  }
+}
