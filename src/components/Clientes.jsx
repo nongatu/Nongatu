@@ -120,7 +120,7 @@ export default function Clientes({ user }) {
           </div>
         </div>
         <div className="table-wrapper">
-          <table>
+          <table className="table-clientes">
             <thead>
               <tr>
                 <th>ID</th><th>Nombre / Razón Social</th><th>RUC</th><th>Cédula</th>
