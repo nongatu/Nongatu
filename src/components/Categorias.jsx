@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from './supabase.js'
+import { supabase } from '../supabase.js'
 
 const EMPTY = { nombre: '', especie_id: 1, cobrable: true, orden: 0 }
 
