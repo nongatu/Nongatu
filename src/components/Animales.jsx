@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../supabase'
-import { gs, diasDesde } from '../utils/helpers'
+import { supabase } from '../supabase.js'
+import { gs, diasDesde } from '../utils/helpers.js'
+import SearchSelect from './SearchSelect.jsx'
 
 const CAUSAS = ['Enfermedad', 'Picadura de víbora', 'Otro']
 
@@ -21,7 +22,7 @@ export default function Animales({ user }) {
   const puedeEliminar = perms.todo || perms.eliminar_anular
 
   useEffect(() => {
-    supabase.from('clientes').select('id,nombre_razon_social,ruc').order('nombre_razon_social').then(({ data }) => setClientes(data || []))
+    supabase.from('clientes').select('id,nombre_razon_social,ruc,cedula').order('nombre_razon_social').then(({ data }) => setClientes(data || []))
     supabase.from('categorias').select('*').order('orden').then(({ data }) => setCategorias(data || []))
   }, [])
 
@@ -37,6 +38,25 @@ export default function Animales({ user }) {
   }, [clienteSelec])
 
   useEffect(() => { cargarAnimales() }, [cargarAnimales])
+
+  const clienteOpts = clientes.map(c => ({
+    value: c.id,
+    label: c.nombre_razon_social,
+    sublabel: [c.ruc ? `RUC: ${c.ruc}` : '', c.cedula ? `CI: ${c.cedula}` : ''].filter(Boolean).join(' · '),
+    searchText: `${c.nombre_razon_social} ${c.ruc || ''} ${c.cedula || ''}`,
+  }))
+
+  const catOpts = categorias.map(c => ({
+    value: c.id,
+    label: c.nombre,
+    searchText: c.nombre,
+  }))
+
+  const catOptsFromIds = (ids) => categorias.filter(c => (ids || []).includes(c.id)).map(c => ({
+    value: c.id,
+    label: c.nombre,
+    searchText: c.nombre,
+  }))
 
   const guardar = async () => {
     if (!clienteSelec) return setMsg({ type: 'error', text: 'Seleccioná un cliente.' })
@@ -64,7 +84,6 @@ export default function Animales({ user }) {
     cargarAnimales()
   }
 
-  // Salida F8
   const abrirSalida = () => {
     const cats = [...new Set(animales.map(a => a.categoria_id))]
     setModalForm({ categoria_id: '', cantidad: 1, cats })
@@ -93,7 +112,6 @@ export default function Animales({ user }) {
     setModal(null); cargarAnimales()
   }
 
-  // Baja F9
   const abrirBaja = () => {
     const cats = [...new Set(animales.map(a => a.categoria_id))]
     setModalForm({ categoria_id: '', cantidad: 1, causa: '', observacion: '', cats })
@@ -122,7 +140,6 @@ export default function Animales({ user }) {
     setModal(null); cargarAnimales()
   }
 
-  // Reclasificar
   const abrirReclasificar = (animal) => {
     setModalForm({ animal, nueva_categoria_id: '', nuevo_precio: animal.precio })
     setModal('reclasificar')
@@ -136,7 +153,6 @@ export default function Animales({ user }) {
     setModal(null); cargarAnimales()
   }
 
-  // Resumen
   const resumen = {}
   animales.forEach(a => {
     const n = a.categorias?.nombre || '?'
@@ -147,27 +163,32 @@ export default function Animales({ user }) {
   const iva = Math.round(gravada * 0.1)
   const total = gravada + iva
 
-  const catModal = (cats) => categorias.filter(c => (cats || []).includes(c.id))
+  const catReclasOpts = modalForm.animal
+    ? categorias.filter(c => c.id !== modalForm.animal?.categoria_id).map(c => ({ value: c.id, label: c.nombre, searchText: c.nombre }))
+    : []
 
   return (
     <div>
-      {/* Selector de cliente + formulario */}
       {puedeRegistrar && (
         <div className="page-card">
           <div className="form-grid">
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
               <label>Cliente *</label>
-              <select value={clienteSelec} onChange={e => setClienteSelec(e.target.value)}>
-                <option value="">Seleccionar cliente...</option>
-                {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre_razon_social} — RUC: {c.ruc || c.id}</option>)}
-              </select>
+              <SearchSelect
+                options={clienteOpts}
+                value={clienteSelec}
+                onChange={setClienteSelec}
+                placeholder="Buscar por nombre, RUC o cédula..."
+              />
             </div>
             <div className="form-group">
               <label>Categoría *</label>
-              <select value={form.categoria_id} onChange={e => setForm({ ...form, categoria_id: e.target.value })}>
-                <option value="">Seleccionar...</option>
-                {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
+              <SearchSelect
+                options={catOpts}
+                value={form.categoria_id}
+                onChange={v => setForm({ ...form, categoria_id: v })}
+                placeholder="Buscar categoría..."
+              />
             </div>
             <div className="form-group">
               <label>Cantidad *</label>
@@ -198,7 +219,6 @@ export default function Animales({ user }) {
         </div>
       )}
 
-      {/* Tabla */}
       <div className="table-container">
         <div className="table-wrapper">
           <table>
@@ -265,13 +285,15 @@ export default function Animales({ user }) {
             </p>
             <div className="form-group" style={{ marginBottom: 14 }}>
               <label>Categoría *</label>
-              <select value={modalForm.categoria_id} onChange={e => setModalForm({ ...modalForm, categoria_id: e.target.value })}>
-                <option value="">Seleccionar...</option>
-                {catModal(modalForm.cats).map(c => {
-                  const cant = animales.filter(a => a.categoria_id === c.id).reduce((s, a) => s + a.cantidad, 0)
-                  return <option key={c.id} value={c.id}>{c.nombre} ({cant} disponibles)</option>
+              <SearchSelect
+                options={catOptsFromIds(modalForm.cats).map(c => {
+                  const cant = animales.filter(a => a.categoria_id === c.value).reduce((s, a) => s + a.cantidad, 0)
+                  return { ...c, sublabel: `${cant} disponibles` }
                 })}
-              </select>
+                value={modalForm.categoria_id}
+                onChange={v => setModalForm({ ...modalForm, categoria_id: v })}
+                placeholder="Buscar categoría..."
+              />
             </div>
             <div className="form-group" style={{ marginBottom: 20 }}>
               <label>Cantidad a vender *</label>
@@ -295,13 +317,15 @@ export default function Animales({ user }) {
             </p>
             <div className="form-group" style={{ marginBottom: 14 }}>
               <label>Categoría *</label>
-              <select value={modalForm.categoria_id} onChange={e => setModalForm({ ...modalForm, categoria_id: e.target.value })}>
-                <option value="">Seleccionar...</option>
-                {catModal(modalForm.cats).map(c => {
-                  const cant = animales.filter(a => a.categoria_id === c.id).reduce((s, a) => s + a.cantidad, 0)
-                  return <option key={c.id} value={c.id}>{c.nombre} ({cant} disponibles)</option>
+              <SearchSelect
+                options={catOptsFromIds(modalForm.cats).map(c => {
+                  const cant = animales.filter(a => a.categoria_id === c.value).reduce((s, a) => s + a.cantidad, 0)
+                  return { ...c, sublabel: `${cant} disponibles` }
                 })}
-              </select>
+                value={modalForm.categoria_id}
+                onChange={v => setModalForm({ ...modalForm, categoria_id: v })}
+                placeholder="Buscar categoría..."
+              />
             </div>
             <div className="form-group" style={{ marginBottom: 14 }}>
               <label>Cantidad *</label>
@@ -341,12 +365,12 @@ export default function Animales({ user }) {
             </p>
             <div className="form-group" style={{ marginBottom: 14 }}>
               <label>Nueva categoría *</label>
-              <select value={modalForm.nueva_categoria_id} onChange={e => setModalForm({ ...modalForm, nueva_categoria_id: e.target.value })}>
-                <option value="">Seleccionar...</option>
-                {categorias.filter(c => c.id !== modalForm.animal?.categoria_id).map(c => (
-                  <option key={c.id} value={c.id}>{c.nombre}</option>
-                ))}
-              </select>
+              <SearchSelect
+                options={catReclasOpts}
+                value={modalForm.nueva_categoria_id}
+                onChange={v => setModalForm({ ...modalForm, nueva_categoria_id: v })}
+                placeholder="Buscar nueva categoría..."
+              />
             </div>
             <div className="form-group" style={{ marginBottom: 20 }}>
               <label>Nuevo precio (Gs.)</label>
