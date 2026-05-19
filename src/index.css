@@ -576,8 +576,9 @@ tr:hover td { background: var(--table-row-hover); }
     max-width: 100vw;
   }
   .hamburger {
-    display: flex;
-  }
+  display: flex;
+  flex-direction: column;
+}
   .topbar {
     padding: 0 16px;
     height: 52px;
