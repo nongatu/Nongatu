@@ -145,22 +145,6 @@ export default function Cobros({ user }) {
   } catch {
     setMsg({ type: 'error', text: 'Error al eliminar el cobro.' })
   }
-}const eliminarCobro = async (id) => {
-  if (!confirm('¿Eliminar este cobro? Esta acción no se puede deshacer.')) return
-  try {
-    const { data: pagosData } = await supabase.from('pagos').select('id').eq('cobro_id', id)
-    const pagoIds = pagosData?.map(p => p.id) || []
-    if (pagoIds.length > 0) {
-      await supabase.from('recibos').delete().in('pago_id', pagoIds)
-    }
-    await supabase.from('pagos').delete().eq('cobro_id', id)
-    await supabase.from('cobro_detalles').delete().eq('cobro_id', id)
-    await supabase.from('cobros').delete().eq('id', id)
-    setMsg({ type: 'success', text: 'Cobro eliminado correctamente.' })
-    cargar()
-  } catch {
-    setMsg({ type: 'error', text: 'Error al eliminar el cobro.' })
-  }
 }
 
   const cobrosFiltrados = cobros.filter(c =>
