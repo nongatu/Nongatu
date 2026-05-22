@@ -91,27 +91,47 @@ function htmlRecibo(recibo, cliente, detalle, pagos=[]) {
   </body></html>`
 }
 
-function calcularCobro(animalesCli, periodo) {
+function calcularCobro(animalesCli, periodo, bajasCli) {
   const [year, month] = periodo.split('-').map(Number)
+  const inicioPeriodo = new Date(year, month - 1, 1)
   const finPeriodo = new Date(year, month, 0)
+
+  // Base: animales activos que ingresaron antes del fin del período
   const aptos = animalesCli.filter(a => {
+    if (a.estado !== 'activo') return false
     if (!a.categorias?.cobrable) return false
     if (new Date(a.fecha_ingreso+'T00:00:00') > finPeriodo) return false
-    // Respetar período de gracia: si tiene fecha_inicio_cobro, no cobrar antes de ese período
     if (a.fecha_inicio_cobro) {
-      const ficPeriodo = a.fecha_inicio_cobro.substring(0, 7) // YYYY-MM
-      if (periodo < ficPeriodo) return false
+      if (periodo < a.fecha_inicio_cobro.substring(0, 7)) return false
     }
     return true
   })
-  if (!aptos.length) return null
+
   const detalles = {}
   aptos.forEach(a => {
     const cid = a.categoria_id
     if (!detalles[cid]) detalles[cid] = { categoria_id: cid, nombre: a.categorias?.nombre||'', cantidad: 0, precio_unitario: Number(a.precio) }
     detalles[cid].cantidad += a.cantidad
   })
-  const det = Object.values(detalles).map(d => ({ ...d, subtotal: d.cantidad * d.precio_unitario }))
+
+  // Reconstrucción histórica: sumar bajas que ocurrieron durante o después de este período.
+  // El animal se cobra hasta el mes en que murió, inclusive.
+  ;(bajasCli||[]).forEach(m => {
+    const fechaBaja = new Date(m.fecha)
+    if (fechaBaja < inicioPeriodo) return  // murió antes de este período → no se cobra
+    // Verificar que el animal ingresó antes del fin del período
+    const animal = animalesCli.find(a => a.id === m.animal_id)
+    if (!animal) return
+    if (!animal.categorias?.cobrable) return
+    if (new Date(animal.fecha_ingreso+'T00:00:00') > finPeriodo) return
+    if (animal.fecha_inicio_cobro && periodo < animal.fecha_inicio_cobro.substring(0, 7)) return
+    const cid = m.categoria_anterior_id
+    const precio = Number(m.precio_nuevo ?? animal.precio)
+    if (!detalles[cid]) detalles[cid] = { categoria_id: cid, nombre: animal.categorias?.nombre||'', cantidad: 0, precio_unitario: precio }
+    detalles[cid].cantidad += m.cantidad
+  })
+
+  const det = Object.values(detalles).filter(d => d.cantidad > 0).map(d => ({ ...d, subtotal: d.cantidad * d.precio_unitario }))
   const total = det.reduce((s,d) => s+d.subtotal, 0)
   if (total === 0) return null
   const iva = Math.round(total / 11)
@@ -119,13 +139,16 @@ function calcularCobro(animalesCli, periodo) {
   return { det, total, iva, gravada }
 }
 
-function calcularPeriodosFaltantes(animales, cobros, clientes) {
+function calcularPeriodosFaltantes(animales, cobros, clientes, bajas) {
   const hoy = new Date()
   const resultado = []
   for (const cliente of clientes) {
-    const animalesCli = animales.filter(a => a.cliente_id === cliente.id)
-    if (!animalesCli.length) continue
-    const minFecha = new Date(Math.min(...animalesCli.map(a => new Date(a.fecha_ingreso+'T00:00:00'))))
+    // Solo activos para determinar si el cliente tiene animales y la fecha mínima
+    const activosCli = animales.filter(a => a.cliente_id === cliente.id && a.estado === 'activo')
+    if (!activosCli.length) continue
+    const todosAnimalesCli = animales.filter(a => a.cliente_id === cliente.id)
+    const bajasCli = (bajas||[]).filter(m => m.cliente_id === cliente.id)
+    const minFecha = new Date(Math.min(...activosCli.map(a => new Date(a.fecha_ingreso+'T00:00:00'))))
     const primerAno = minFecha.getMonth()===11 ? minFecha.getFullYear()+1 : minFecha.getFullYear()
     const primerMes = (minFecha.getMonth()+1) % 12
     const cobrosSet = new Set(cobros.filter(c=>c.cliente_id===cliente.id).map(c=>c.periodo))
@@ -135,7 +158,7 @@ function calcularPeriodosFaltantes(animales, cobros, clientes) {
     while (cur <= limite) {
       const p = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`
       if (!cobrosSet.has(p)) {
-        const calc = calcularCobro(animalesCli, p)
+        const calc = calcularCobro(todosAnimalesCli, p, bajasCli)
         if (calc) faltantes.push(p)
       }
       cur.setMonth(cur.getMonth()+1)
@@ -165,6 +188,7 @@ export default function Cobros({ user }) {
   const [filtroCreditosDesde, setFiltroCreditosDesde] = useState('')
   const [filtroCreditosHasta, setFiltroCreditosHasta] = useState('')
   const [seleccionados, setSeleccionados] = useState(new Set())
+  const [movimientos, setMovimientos] = useState([])
 
   const perms = user?.rol==='Administrador'?{todo:true}:(user?.permisos||{})
   const puedeGenerar = perms.todo||perms.generar_cobros
@@ -174,8 +198,9 @@ export default function Cobros({ user }) {
   useEffect(()=>{
     Promise.all([
       supabase.from('clientes').select('id,nombre_razon_social,ruc').order('nombre_razon_social'),
-      supabase.from('animales').select('id,cliente_id,categoria_id,cantidad,fecha_ingreso,precio,fecha_inicio_cobro,categorias(nombre,cobrable)').eq('estado','activo'),
-    ]).then(([{data:cl},{data:an}])=>{ setClientes(cl||[]); setAnimales(an||[]) })
+      supabase.from('animales').select('id,cliente_id,categoria_id,cantidad,fecha_ingreso,precio,fecha_inicio_cobro,estado,categorias(nombre,cobrable)').in('estado',['activo','baja']),
+      supabase.from('movimientos').select('animal_id,cliente_id,tipo,categoria_anterior_id,cantidad,precio_nuevo,fecha').eq('tipo','baja'),
+    ]).then(([{data:cl},{data:an},{data:mv}])=>{ setClientes(cl||[]); setAnimales(an||[]); setMovimientos(mv||[]) })
     cargar()
   },[])
 
@@ -190,7 +215,7 @@ export default function Cobros({ user }) {
     setLoading(false)
   }
 
-  const faltantes = calcularPeriodosFaltantes(animales, cobros, clientes)
+  const faltantes = calcularPeriodosFaltantes(animales, cobros, clientes, movimientos)
 
   const stats = {
     pendiente: cobros.filter(c=>c.estado==='pendiente').reduce((s,c)=>s+Number(c.total),0),
@@ -205,8 +230,9 @@ export default function Cobros({ user }) {
     let total = 0
     for (const {cliente, periodos} of faltantes) {
       const animalesCli = animales.filter(a=>a.cliente_id===cliente.id)
+      const bajasCli = movimientos.filter(m=>m.cliente_id===cliente.id)
       for (const periodo of periodos) {
-        const calc = calcularCobro(animalesCli, periodo)
+        const calc = calcularCobro(animalesCli, periodo, bajasCli)
         if (!calc) continue
         const [year,month] = periodo.split('-').map(Number)
         const venc = new Date(year,month,10)
@@ -247,8 +273,10 @@ export default function Cobros({ user }) {
     let total = 0
     for (const cliente of clientes) {
       const animalesCli = animales.filter(a=>a.cliente_id===cliente.id)
-      if (!animalesCli.length) continue
-      const minFecha = new Date(Math.min(...animalesCli.map(a=>new Date(a.fecha_ingreso+'T00:00:00'))))
+      const activosCli = animalesCli.filter(a=>a.estado==='activo')
+      if (!activosCli.length) continue
+      const bajasCli = movimientos.filter(m=>m.cliente_id===cliente.id)
+      const minFecha = new Date(Math.min(...activosCli.map(a=>new Date(a.fecha_ingreso+'T00:00:00'))))
       const primerAno = minFecha.getMonth()===11?minFecha.getFullYear()+1:minFecha.getFullYear()
       const primerMes = (minFecha.getMonth()+1)%12
       const hoy = new Date()
@@ -256,7 +284,7 @@ export default function Cobros({ user }) {
       const limite = new Date(hoy.getFullYear(),hoy.getMonth(),1)
       while (cur<=limite) {
         const periodo = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`
-        const calc = calcularCobro(animalesCli,periodo)
+        const calc = calcularCobro(animalesCli, periodo, bajasCli)
         if (calc) {
           const [y,m] = periodo.split('-').map(Number)
           const venc = new Date(y,m,10)

@@ -278,10 +278,10 @@ export default function Animales({ user }) {
 
   // ── Baja F9 ───────────────────────────────────────────────────────────────
   const abrirBaja = () => {
-    setModalForm({ categoria_id: '', cantidad: 1, causa: '', observacion: '' }); setModal('baja')
+    setModalForm({ categoria_id: '', cantidad: 1, causa: '', observacion: '', fecha_baja: new Date().toISOString().split('T')[0] }); setModal('baja')
   }
   const registrarBaja = async () => {
-    const { categoria_id, cantidad, causa, observacion } = modalForm
+    const { categoria_id, cantidad, causa, observacion, fecha_baja } = modalForm
     if (!categoria_id || !cantidad || !causa) return
     const registros = animales.filter(a => a.categoria_id === parseInt(categoria_id))
       .sort((a, b) => {
@@ -301,8 +301,9 @@ export default function Animales({ user }) {
       await supabase.from('movimientos').insert({
         animal_id: r.id, cliente_id: parseInt(clienteSelec), tipo: 'baja',
         categoria_anterior_id: r.categoria_id, cantidad: q,
+        precio_nuevo: r.precio,  // guardamos el precio para reconstrucción histórica de cobros
         causa, observacion: causa === 'Otro' ? observacion : null,
-        usuario_id: user?.id, fecha: new Date().toISOString()
+        usuario_id: user?.id, fecha: (fecha_baja || new Date().toISOString().split('T')[0]) + 'T00:00:00'
       })
       restante -= q
     }
@@ -560,6 +561,11 @@ export default function Animales({ user }) {
             <label>Cantidad *</label>
             <input type="number" min="1" value={modalForm.cantidad}
               onChange={e => setModalForm({ ...modalForm, cantidad: e.target.value })} />
+          </div>
+          <div className="form-group" style={{ marginBottom: 14 }}>
+            <label>Fecha de muerte *</label>
+            <input type="date" value={modalForm.fecha_baja}
+              onChange={e => setModalForm({ ...modalForm, fecha_baja: e.target.value })} />
           </div>
           <div className="form-group" style={{ marginBottom: 14 }}>
             <label>Causa de muerte *</label>
