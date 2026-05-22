@@ -12,27 +12,37 @@ export default function Dashboard() {
   const cargar = async () => {
     setLoading(true)
     try {
-      const [{ count: animales }, { count: clientes }, cobrosRes, catRes] = await Promise.all([
-        supabase.from('animales').select('*', { count: 'exact', head: true }).eq('estado', 'activo'),
+      const [animalesRes, { count: clientes }, cobrosRes, catRes] = await Promise.all([
+        supabase.from('animales').select('cantidad').eq('estado', 'activo'),
         supabase.from('clientes').select('*', { count: 'exact', head: true }),
-        supabase.from('cobros').select('total, estado, periodo'),
+        supabase.from('cobros').select('total, estado, periodo, pagos(monto)'),
         supabase.from('animales').select('categoria_id, cantidad, categorias(nombre)').eq('estado', 'activo'),
       ])
 
       const ahora = new Date()
       const periodoActual = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`
-      const pendiente = cobrosRes.data?.filter(c => c.estado === 'pendiente').reduce((s, c) => s + Number(c.total), 0) || 0
-      const mes = cobrosRes.data?.filter(c => c.periodo === periodoActual).reduce((s, c) => s + Number(c.total), 0) || 0
 
-      setStats({ animales: animales || 0, clientes: clientes || 0, pendiente, mes })
+      // Suma de cantidades, no conteo de filas
+      const animales = animalesRes.data?.reduce((s, a) => s + Number(a.cantidad), 0) || 0
+
+      // Saldo real: incluye cobros pendientes Y parciales
+      const pendiente = cobrosRes.data?.reduce((s, c) => {
+        const pagado = c.pagos?.reduce((ps, p) => ps + Number(p.monto), 0) || 0
+        return s + Math.max(0, Number(c.total) - pagado)
+      }, 0) || 0
+
+      const mes = cobrosRes.data?.filter(c => c.periodo === periodoActual)
+        .reduce((s, c) => s + Number(c.total), 0) || 0
+
+      setStats({ animales, clientes: clientes || 0, pendiente, mes })
 
       const agrupado = {}
       catRes.data?.forEach(a => {
         const nombre = a.categorias?.nombre || 'Sin categoría'
-        agrupado[nombre] = (agrupado[nombre] || 0) + a.cantidad
+        agrupado[nombre] = (agrupado[nombre] || 0) + Number(a.cantidad)
       })
       setPorCategoria(Object.entries(agrupado).sort((a, b) => b[1] - a[1]))
-    } catch {}
+    } catch (e) { console.error(e) }
     setLoading(false)
   }
 
