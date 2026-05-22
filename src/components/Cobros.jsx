@@ -91,6 +91,96 @@ function htmlRecibo(recibo, cliente, detalle, pagos=[]) {
   </body></html>`
 }
 
+// ── HTML Detalle de cobro para imprimir ───────────────────────────────────────
+function htmlDetalle(cobro, clienteNombre, detalles, pagos = []) {
+  const periodoStr = periodoLabel(cobro.periodo || '')
+  const totalCobro = (detalles || []).filter(d => d.cantidad > 0).reduce((s, d) => s + Number(d.subtotal || 0), 0)
+  const totalPagado = pagos.reduce((s, p) => s + Number(p.monto), 0)
+  const saldo = totalCobro - totalPagado
+
+  const filas = (detalles || []).filter(d => d.cantidad > 0).map(d =>
+    `<tr>
+      <td>${d.categorias?.nombre || ''}</td>
+      <td style="text-align:center">${d.cantidad}</td>
+      <td style="text-align:right">${gs(d.precio_unitario || 0)} Gs.</td>
+      <td style="text-align:right">${gs(d.subtotal || 0)} Gs.</td>
+    </tr>`
+  ).join('')
+
+  const filasPagos = pagos.map(p => {
+    const fecha = p.fecha_pago ? new Date(p.fecha_pago).toLocaleDateString('es-PY') : '-'
+    const tipo = p.tipo === 'credito_adelantado' ? 'Pago adelantado' : p.tipo === 'completo' ? 'Pago completo' : 'Pago parcial'
+    const medio = p.medio_pago === 'transferencia' ? 'Transferencia bancaria' : 'Efectivo'
+    return `<tr><td>${fecha}</td><td>${tipo}</td><td>${medio}</td><td style="text-align:right;font-weight:700">${gs(p.monto)} Gs.</td></tr>`
+  }).join('')
+
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Detalle ${periodoStr}</title><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:12px;padding:20px;max-width:700px;margin:0 auto}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;border-bottom:2px solid #000;padding-bottom:10px}
+    .empresa .nombre{font-size:16px;font-weight:700;margin-bottom:2px}
+    .doc-info{text-align:right}
+    .doc-titulo{font-size:14px;font-weight:700;text-transform:uppercase}
+    table{width:100%;border-collapse:collapse;margin-bottom:10px}
+    th,td{border:1px solid #ccc;padding:4px 6px;font-size:11px}
+    th{background:#f0f0f0;font-weight:700;text-align:left}
+    .datos td{border:none;padding:2px 4px;font-size:12px}
+    .datos .lbl{font-weight:700;width:150px;white-space:nowrap}
+    .total-row td{font-weight:700;background:#f5f5f5}
+    .seccion{font-weight:700;font-size:11px;text-transform:uppercase;margin:12px 0 6px;border-bottom:1px solid #bbb;padding-bottom:3px}
+    @media print{body{padding:10px}}
+  </style></head><body>
+    <div class="header">
+      <div class="empresa">
+        <div class="nombre">QUERANDY S.A.</div>
+        <div>RUC: 80094734-7</div>
+        <div>Mcal. Estigarribia - Boquerón</div>
+      </div>
+      <div class="doc-info">
+        <div class="doc-titulo">Detalle de cobro</div>
+        <div>Fecha: ${new Date().toLocaleDateString('es-PY')}</div>
+      </div>
+    </div>
+    <table class="datos" style="margin-bottom:14px">
+      <tr><td class="lbl">Cliente:</td><td><strong>${clienteNombre}</strong></td></tr>
+      <tr><td class="lbl">Período:</td><td><strong>${periodoStr}</strong></td></tr>
+    </table>
+    <div class="seccion">Animales en pastura — detalle</div>
+    <table>
+      <thead><tr>
+        <th>Categoría</th><th style="text-align:center">Cantidad</th>
+        <th style="text-align:right">Precio unitario</th><th style="text-align:right">Subtotal</th>
+      </tr></thead>
+      <tbody>
+        ${filas}
+        <tr class="total-row">
+          <td colspan="3" style="text-align:right">TOTAL DEL PERÍODO:</td>
+          <td style="text-align:right">${gs(totalCobro)} Gs.</td>
+        </tr>
+      </tbody>
+    </table>
+    ${pagos.length > 0 ? `
+      <div class="seccion">Pagos aplicados</div>
+      <table>
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Medio</th><th style="text-align:right">Monto</th></tr></thead>
+        <tbody>
+          ${filasPagos}
+          <tr class="total-row">
+            <td colspan="3" style="text-align:right">TOTAL PAGADO:</td>
+            <td style="text-align:right">${gs(totalPagado)} Gs.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="text-align:right;margin-top:8px;font-size:13px;font-weight:700">
+        ${saldo <= 0
+          ? '<span style="color:green">✓ CANCELADO TOTALMENTE</span>'
+          : `<span style="color:#c00">SALDO PENDIENTE: ${gs(saldo)} Gs.</span>`}
+      </div>
+    ` : '<div style="color:#999;font-style:italic;margin-top:8px;font-size:11px">Sin pagos registrados aún.</div>'}
+    <script>window.onload=()=>window.print()<\/script>
+  </body></html>`
+}
+
 function calcularCobro(animalesCli, periodo, bajasCli) {
   const [year, month] = periodo.split('-').map(Number)
   const inicioPeriodo = new Date(year, month - 1, 1)
@@ -259,60 +349,89 @@ export default function Cobros({ user }) {
     await cargar(); setProcesando(false)
   }
 
-  const recalcularTodos = async () => {
-    if (!puedeGenerar) return
-    if (!confirm('Elimina todos los cobros y los recrea. Los créditos se reaplicarán. ¿Continuás?')) return
+  // ── Recalcula solo los cobros seleccionados con checkboxes ───────────────────
+  const recalcularSeleccionados = async () => {
+    if (!puedeEliminar || !seleccionados.size) return
+    const cobrosARecalcular = cobros.filter(c => seleccionados.has(c.id))
+    if (!cobrosARecalcular.length) return
+    if (!confirm(`¿Recalcular ${cobrosARecalcular.length} cobro(s) seleccionado(s)?\nSe eliminarán y recrearán con los datos actuales de animales.`)) return
     setProcesando(true); setMsg(null)
-    const {data:todosLosCobros} = await supabase.from('cobros').select('id')
-    for (const c of todosLosCobros||[]) {
-      const {data:pagosD} = await supabase.from('pagos').select('id').eq('cobro_id',c.id)
-      const pids = pagosD?.map(p=>p.id)||[]
-      if (pids.length) await supabase.from('recibos').delete().in('pago_id',pids)
-      await supabase.from('recibos').delete().eq('cobro_id',c.id)
-      await supabase.from('pagos').delete().eq('cobro_id',c.id)
-      await supabase.from('cobro_detalles').delete().eq('cobro_id',c.id)
-    }
-    await supabase.from('cobros').delete().neq('id',0)
-    await supabase.from('creditos_cliente').update({aplicado:false,cobro_id:null}).neq('id',0)
     let total = 0
-    for (const cliente of clientes) {
-      const animalesCli = animales.filter(a=>a.cliente_id===cliente.id)
-      const activosCli = animalesCli.filter(a=>a.estado==='activo')
-      if (!activosCli.length) continue
-      const bajasCli = movimientos.filter(m=>m.cliente_id===cliente.id)
-      const minFecha = new Date(Math.min(...activosCli.map(a=>new Date(a.fecha_ingreso+'T00:00:00'))))
-      const primerAno = minFecha.getMonth()===11?minFecha.getFullYear()+1:minFecha.getFullYear()
-      const primerMes = (minFecha.getMonth()+1)%12
-      const hoy = new Date()
-      const cur = new Date(primerAno,primerMes,1)
-      const limite = new Date(hoy.getFullYear(),hoy.getMonth(),1)
-      while (cur<=limite) {
-        const periodo = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`
-        const calc = calcularCobro(animalesCli, periodo, bajasCli)
-        if (calc) {
-          const [y,m] = periodo.split('-').map(Number)
-          const venc = new Date(y,m,10)
-          const {data:cobro} = await supabase.from('cobros').insert({
-            cliente_id:cliente.id, periodo,
-            fecha_generacion:new Date().toISOString().split('T')[0],
-            fecha_vencimiento:venc.toISOString().split('T')[0],
-            gravada:calc.gravada, iva:calc.iva, total:calc.total, estado:'pendiente'
-          }).select().single()
-          if (cobro) {
-            await supabase.from('cobro_detalles').insert(calc.det.map(d=>({
-              cobro_id:cobro.id,categoria_id:d.categoria_id,
-              cantidad:d.cantidad,precio_unitario:d.precio_unitario,subtotal:d.subtotal
-            })))
-            total++
-          }
+    for (const cobro of cobrosARecalcular) {
+      // Limpiar todo lo relacionado al cobro
+      const {data:pd} = await supabase.from('pagos').select('id').eq('cobro_id',cobro.id)
+      const pids = pd?.map(p=>p.id)||[]
+      if (pids.length) await supabase.from('recibos').delete().in('pago_id',pids)
+      await supabase.from('recibos').delete().eq('cobro_id',cobro.id)
+      await supabase.from('creditos_cliente').update({aplicado:false,cobro_id:null}).eq('cobro_id',cobro.id)
+      await supabase.from('pagos').delete().eq('cobro_id',cobro.id)
+      await supabase.from('cobro_detalles').delete().eq('cobro_id',cobro.id)
+      await supabase.from('cobros').delete().eq('id',cobro.id)
+      // Recrear con datos actuales
+      const animalesCli = animales.filter(a=>a.cliente_id===cobro.cliente_id)
+      const bajasCli = movimientos.filter(m=>m.cliente_id===cobro.cliente_id)
+      const calc = calcularCobro(animalesCli, cobro.periodo, bajasCli)
+      if (calc) {
+        const [y,m] = cobro.periodo.split('-').map(Number)
+        const venc = new Date(y,m,10)
+        const {data:nuevoCobro} = await supabase.from('cobros').insert({
+          cliente_id:cobro.cliente_id, periodo:cobro.periodo,
+          fecha_generacion:new Date().toISOString().split('T')[0],
+          fecha_vencimiento:venc.toISOString().split('T')[0],
+          gravada:calc.gravada, iva:calc.iva, total:calc.total, estado:'pendiente'
+        }).select().single()
+        if (nuevoCobro) {
+          await supabase.from('cobro_detalles').insert(calc.det.map(d=>({
+            cobro_id:nuevoCobro.id, categoria_id:d.categoria_id,
+            cantidad:d.cantidad, precio_unitario:d.precio_unitario, subtotal:d.subtotal
+          })))
+          total++
         }
-        cur.setMonth(cur.getMonth()+1)
       }
     }
     await aplicarCreditosFIFO()
     await generarRecibosConsolidados()
-    setMsg({type:'success',text:`Recalculado: ${total} cobros. Créditos y recibos regenerados.`})
+    setSeleccionados(new Set())
+    setMsg({type:'success',text:`${total} cobro(s) recalculado(s) correctamente.`})
     await cargar(); setProcesando(false)
+  }
+
+  // ── Desaplica todos los créditos: borra pagos tipo credito_adelantado ────────
+  const anularCreditosAplicados = async () => {
+    if (!confirm('¿Anular todos los créditos aplicados? Volverán a estado pendiente.\nLos cobros afectados quedarán sin ese pago hasta que vuelvas a aplicar créditos.')) return
+    setProcesando(true); setMsg(null)
+    const {data:pagosCredito} = await supabase.from('pagos').select('id,cobro_id').eq('tipo','credito_adelantado')
+    if (pagosCredito?.length) {
+      const pids = pagosCredito.map(p=>p.id)
+      await supabase.from('recibos').delete().in('pago_id',pids)
+      await supabase.from('pagos').delete().in('id',pids)
+      const cobroIds = [...new Set(pagosCredito.map(p=>p.cobro_id).filter(Boolean))]
+      if (cobroIds.length) {
+        await supabase.from('recibos').delete().in('cobro_id',cobroIds)
+        for (const cobroId of cobroIds) {
+          const {data:cb} = await supabase.from('cobros').select('total,pagos(monto)').eq('id',cobroId).single()
+          if (cb) {
+            const pagado = cb.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
+            const estado = pagado<=0?'pendiente':pagado<Number(cb.total)?'parcial':'pagado'
+            await supabase.from('cobros').update({estado}).eq('id',cobroId)
+          }
+        }
+      }
+    }
+    await supabase.from('creditos_cliente').update({aplicado:false,cobro_id:null}).eq('aplicado',true)
+    setMsg({type:'success',text:'Créditos desaplicados. Ahora podés recalcular y volver a aplicar.'})
+    await cargar(); setProcesando(false)
+  }
+
+  // ── Abre PDF con detalle de animales de un cobro ──────────────────────────
+  const verDetalle = async cobro => {
+    const [{data:det},{data:pags}] = await Promise.all([
+      supabase.from('cobro_detalles').select('*,categorias(nombre)').eq('cobro_id',cobro.id),
+      supabase.from('pagos').select('monto,tipo,fecha_pago,medio_pago').eq('cobro_id',cobro.id).order('fecha_pago')
+    ])
+    const w = window.open('','_blank')
+    w.document.write(htmlDetalle(cobro, cobro.clientes?.nombre_razon_social||'', det||[], pags||[]))
+    w.document.close()
   }
 
   // ── FIFO: solo crea pagos, NO crea recibos ────────────────────────────────
@@ -610,8 +729,9 @@ export default function Cobros({ user }) {
                 </select>
               </div>
               {puedeRegistrar&&<button className="btn btn-purple" onClick={abrirCredito}>+ Pago adelantado</button>}
-              {puedeGenerar&&<button className="btn btn-blue btn-sm" onClick={aplicarYGenerarRecibos} disabled={procesando}>Aplicar créditos</button>}
-              {puedeGenerar&&<button className="btn btn-red btn-sm" onClick={recalcularTodos} disabled={procesando}>Recalcular todos</button>}
+              {puedeGenerar&&<button className="btn btn-blue" onClick={aplicarYGenerarRecibos} disabled={procesando}>Aplicar créditos</button>}
+              {puedeGenerar&&<button className="btn btn-orange" onClick={anularCreditosAplicados} disabled={procesando}>Anular créditos</button>}
+              {puedeEliminar&&<button className="btn btn-red" onClick={recalcularSeleccionados} disabled={!algunoSeleccionado||procesando} style={{opacity:algunoSeleccionado?1:0.4}} title="Seleccioná cobros con el checkbox primero">Recalcular seleccionados</button>}
             </div>
             {puedeEliminar&&(
               <button
@@ -637,8 +757,7 @@ export default function Cobros({ user }) {
                     />
                   </th>
                 )}
-                <th>N°</th><th>Cliente</th><th>Período</th><th>Total</th><th>Pagado</th><th>Crédito</th><th>Saldo</th><th>Estado</th><th>Vencimiento</th>
-                {puedeRegistrar&&<th>Acciones</th>}
+                <th>N°</th><th>Cliente</th><th>Período</th><th>Total</th><th>Pagado</th><th>Crédito</th><th>Saldo</th><th>Estado</th><th>Vencimiento</th><th>Acciones</th>
               </tr></thead>
               <tbody>
                 {loading?<tr><td colSpan={puedeEliminar?11:10} className="table-empty">Cargando...</td></tr>
@@ -668,11 +787,10 @@ export default function Cobros({ user }) {
                         {venc&&<span className="badge badge-red" style={{marginLeft:4}}>Vencido</span>}
                       </td>
                       <td>{c.fecha_vencimiento?new Date(c.fecha_vencimiento+'T00:00:00').toLocaleDateString('es-PY'):'-'}</td>
-                      {puedeRegistrar&&(
-                        <td>
-                          {c.estado!=='pagado'&&<button className="btn btn-green btn-sm" onClick={()=>abrirPago(c)}>Registrar pago</button>}
-                        </td>
-                      )}
+                      <td style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                        <button className="btn btn-blue btn-sm" onClick={()=>verDetalle(c)}>Ver detalle</button>
+                        {puedeRegistrar&&c.estado!=='pagado'&&<button className="btn btn-green btn-sm" onClick={()=>abrirPago(c)}>Registrar pago</button>}
+                      </td>
                     </tr>
                   )
                 })}
