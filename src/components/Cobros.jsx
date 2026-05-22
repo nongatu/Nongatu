@@ -326,6 +326,20 @@ export default function Cobros({ user }) {
     } catch { setMsg({type:'error',text:'Error al eliminar.'}) }
   }
 
+  const eliminarRecibo = async (id) => {
+  if (!confirm('¿Eliminar este recibo? Esta acción no se puede deshacer.')) return
+  await supabase.from('recibos').delete().eq('id', id)
+  setMsg({ type: 'success', text: 'Recibo eliminado.' })
+  cargar()
+}
+
+  const eliminarCredito = async (id) => {
+  if (!confirm('¿Eliminar este pago adelantado?')) return
+  await supabase.from('creditos_cliente').delete().eq('id', id)
+  setMsg({ type: 'success', text: 'Crédito eliminado.' })
+  cargar()
+}
+
   const verPDF = r => {
     const w=window.open('','_blank')
     w.document.write(htmlRecibo({...r,periodo:r.cobros?.periodo||''},r.clientes?.nombre_razon_social||'',r.detalle||[]))
@@ -422,7 +436,7 @@ export default function Cobros({ user }) {
       {tab==='recibos'&&(
         <div className="table-container"><div className="table-wrapper">
           <table>
-            <thead><tr><th>N° Recibo</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Ver PDF</th></tr></thead>
+            <thead><tr><th>N° Recibo</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Ver PDF</th><th>Eliminar</th></tr></thead>
             <tbody>
               {recibos.length===0?<tr><td colSpan={5} className="table-empty">Sin recibos.</td></tr>
               :recibos.map(r=>(
@@ -432,6 +446,7 @@ export default function Cobros({ user }) {
                   <td>{new Date((r.fecha||'')+'T00:00:00').toLocaleDateString('es-PY')}</td>
                   <td>{gs(r.total)} Gs.</td>
                   <td><button className="btn btn-blue btn-sm" onClick={()=>verPDF(r)}>Ver PDF</button></td>
+<td>{puedeEliminar && <button className="btn btn-red btn-sm" onClick={()=>eliminarRecibo(r.id)}>Eliminar</button>}</td>
                 </tr>
               ))}
             </tbody>
