@@ -117,13 +117,15 @@ export default function Animales({ user }) {
     }
 
     // Crear nuevo registro con categoría destino
+    const catOrigenNombre = categorias.find(c => c.id === parseInt(form.categoria_id))?.nombre || ''
+    const obsReclas = `Reclasificado de ${catOrigenNombre}${form.observaciones ? ' | '+form.observaciones : ''}`
     await supabase.from('animales').insert({
       cliente_id: parseInt(clienteSelec),
       categoria_id: parseInt(form.nueva_categoria_id),
       cantidad: cant,
       fecha_ingreso: form.fecha_ingreso,
       precio: parseInt(form.precio) || 0,
-      observaciones: form.observaciones,
+      observaciones: obsReclas,
       estado: 'activo', usuario_id: user?.id,
       fecha_registro: new Date().toISOString(),
     })
@@ -285,7 +287,7 @@ export default function Animales({ user }) {
             <div className="form-group" style={{ gridColumn: 'span 3', marginTop: -4 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
                 <input type="checkbox" checked={form.reclasMode}
-                  onChange={e => setForm({ ...form, reclasMode: e.target.checked, nueva_categoria_id: '', precio: '' })}
+                  onChange={e => setForm({ ...form, reclasMode: e.target.checked, nueva_categoria_id: '', precio: '', fecha_ingreso: e.target.checked ? new Date().toISOString().split('T')[0] : form.fecha_ingreso })}
                   style={{ width: 'auto', margin: 0 }} />
                 Habilitar reclasificación
               </label>
@@ -341,7 +343,7 @@ export default function Animales({ user }) {
                   {clienteSelec ? 'Sin animales activos para este cliente.' : 'Seleccioná un cliente para ver sus animales.'}
                 </td></tr>
               ) : animales.map(a => (
-                <tr key={a.id}>
+                <tr key={a.id} style={a.observaciones?.startsWith('Reclasificado') ? {background:'#f5f3ff'} : {}}>
                   <td>{a.id}</td>
                   <td>{clientes.find(c => c.id === a.cliente_id)?.nombre_razon_social?.split(' ')[0] || a.cliente_id}</td>
                   <td><span className="badge badge-blue">{a.categorias?.nombre}</span></td>
