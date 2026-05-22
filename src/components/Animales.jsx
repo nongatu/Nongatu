@@ -156,10 +156,50 @@ export default function Animales({ user }) {
   }
 
   const eliminar = async (id) => {
+  const animal = animales.find(a => a.id === id)
+  const esReclasificado = animal?.observaciones?.startsWith('Reclasificado de')
+
+  if (esReclasificado) {
+    const catOrigenNombre = animal.observaciones.match(/Reclasificado de ([^|]+)/)?.[1]?.trim() || ''
+    const restaurar = confirm(
+      `Este registro fue reclasificado desde "${catOrigenNombre}".\n\n` +
+      `¿Querés restaurar los ${animal.cantidad} animales a "${catOrigenNombre}"?\n\n` +
+      `Aceptar = eliminar Y restaurar la cantidad original\n` +
+      `Cancelar = no hacer nada`
+    )
+    if (!restaurar) return
+
+    const catOrigen = categorias.find(c => c.nombre === catOrigenNombre)
+    if (catOrigen) {
+      const registrosOrigen = animales
+        .filter(a => a.categoria_id === catOrigen.id && a.id !== id)
+        .sort((a, b) => new Date(a.fecha_ingreso) - new Date(b.fecha_ingreso))
+
+      if (registrosOrigen.length > 0) {
+        await supabase.from('animales')
+          .update({ cantidad: registrosOrigen[0].cantidad + animal.cantidad })
+          .eq('id', registrosOrigen[0].id)
+      } else {
+        await supabase.from('animales').insert({
+          cliente_id: parseInt(clienteSelec),
+          categoria_id: catOrigen.id,
+          cantidad: animal.cantidad,
+          fecha_ingreso: animal.fecha_ingreso,
+          precio: 0,
+          observaciones: 'Restaurado de reclasificación',
+          estado: 'activo',
+          usuario_id: user?.id,
+          fecha_registro: new Date().toISOString(),
+        })
+      }
+    }
+  } else {
     if (!confirm('¿Eliminar este registro?')) return
-    await supabase.from('animales').delete().eq('id', id)
-    cargarAnimales()
   }
+
+  await supabase.from('animales').delete().eq('id', id)
+  cargarAnimales()
+}
 
   // ── Salida F8 ─────────────────────────────────────────────────────────────
   const abrirSalida = () => {
