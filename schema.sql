@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS animales (
 -- si la tabla animales ya existe en producción
 -- =============================================
 -- ALTER TABLE animales ADD COLUMN IF NOT EXISTS fecha_inicio_cobro DATE DEFAULT NULL;
+-- ALTER TABLE animales ADD COLUMN IF NOT EXISTS cobrar_proporcional BOOLEAN DEFAULT FALSE;
 
 CREATE TABLE IF NOT EXISTS movimientos (
   id SERIAL PRIMARY KEY,
