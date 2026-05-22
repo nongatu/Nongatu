@@ -377,8 +377,8 @@ export default function Animales({ user }) {
                 onChange={e => setForm({ ...form, observaciones: e.target.value })} />
             </div>
 
-            {/* Checkboxes */}
-            <div className="form-group" style={{ gridColumn: 'span 3', marginTop: -4, display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+            {/* Checkboxes — columna inline junto a Observaciones */}
+            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 10 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
                 <input type="checkbox" checked={form.reclasMode}
                   onChange={e => setForm({ ...form, reclasMode: e.target.checked, nueva_categoria_id: '', precio: '', fecha_ingreso: '' })}
