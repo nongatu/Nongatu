@@ -5,6 +5,7 @@ import { gs, periodoLabel } from '../utils/helpers'
 const TIPOS = [
   { value: 'animales_activos',   label: 'Resumen de animales activos (detallado)' },
   { value: 'estado_cuenta',      label: 'Estado de cuenta por cliente' },
+  { value: 'caja_chica',         label: 'Movimiento de caja (débito / crédito)' },
   { value: 'pagos_realizados',   label: 'Pagos realizados' },
   { value: 'bajas',              label: 'Bajas de animales' },
   { value: 'salidas',            label: 'Salidas de animales' },
@@ -47,6 +48,72 @@ function htmlReporte(titulo, columnas, filas, filtrosTxt) {
     <table>
       <thead><tr>${columnas.map(c => `<th>${c}</th>`).join('')}</tr></thead>
       <tbody>${filas.map(f => `<tr>${f.map(c => `<td>${c ?? '-'}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table>
+    <script>window.onload=()=>window.print()<\/script>
+  </body></html>`
+}
+
+// ── HTML especial para caja chica ─────────────────────────────────────────────
+function htmlCajaChica(clienteNombre, filas, filtrosTxt) {
+  const hoy = new Date().toLocaleDateString('es-PY')
+  const totalDeb = filas.reduce((s,r)=>s+r.debito,0)
+  const totalCre = filas.reduce((s,r)=>s+r.credito,0)
+  const saldoFinal = filas.length ? filas[filas.length-1].saldo : 0
+  const fmt = n => n.toLocaleString('es-PY')
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Movimiento de Caja</title><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:11px;padding:20px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;border-bottom:2px solid #000;padding-bottom:10px}
+    .empresa .nombre{font-size:17px;font-weight:700;margin-bottom:3px}
+    .empresa div{font-size:11px;color:#333}
+    .reporte-info{text-align:right}
+    .reporte-info .rtitulo{font-size:14px;font-weight:700;text-transform:uppercase;margin-bottom:3px}
+    .filtros{font-size:10px;color:#666;margin-bottom:10px;font-style:italic}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{border:1px solid #ccc;padding:4px 7px;font-size:10px;vertical-align:top}
+    th{background:#f0f0f0;font-weight:700;text-align:left}
+    th.num,td.num{text-align:right}
+    tr:nth-child(even) td{background:#fafafa}
+    .saldo-pos{color:#c0392b;font-weight:700}
+    .saldo-neg{color:#27ae60;font-weight:700}
+    .totales td{font-weight:700;background:#e8f0fe !important;font-size:10px}
+    @media print{body{padding:8px}}
+  </style></head><body>
+    <div class="header">
+      <div class="empresa">
+        <div class="nombre">QUERANDY S.A.</div>
+        <div>RUC: 80094734-7</div>
+        <div>Mcal. Estigarribia - Boquerón</div>
+      </div>
+      <div class="reporte-info">
+        <div class="rtitulo">Movimiento de Caja</div>
+        <div>Cliente: <strong>${clienteNombre}</strong></div>
+        <div>Fecha de emisión: ${hoy}</div>
+      </div>
+    </div>
+    ${filtrosTxt ? `<div class="filtros">${filtrosTxt}</div>` : ''}
+    <table>
+      <thead><tr>
+        <th>Fecha</th><th>Concepto</th>
+        <th class="num">Débito (Gs.)</th>
+        <th class="num">Crédito (Gs.)</th>
+        <th class="num">Saldo (Gs.)</th>
+      </tr></thead>
+      <tbody>
+        ${filas.map(r=>`<tr>
+          <td>${new Date(r.fecha).toLocaleDateString('es-PY')}</td>
+          <td>${r.concepto}</td>
+          <td class="num">${r.debito>0?fmt(r.debito):'-'}</td>
+          <td class="num">${r.credito>0?fmt(r.credito):'-'}</td>
+          <td class="num ${r.saldo>0?'saldo-pos':'saldo-neg'}">${fmt(r.saldo)}</td>
+        </tr>`).join('')}
+        <tr class="totales">
+          <td colspan="2">TOTALES</td>
+          <td class="num">${fmt(totalDeb)}</td>
+          <td class="num">${fmt(totalCre)}</td>
+          <td class="num ${saldoFinal>0?'saldo-pos':'saldo-neg'}">${fmt(saldoFinal)}</td>
+        </tr>
+      </tbody>
     </table>
     <script>window.onload=()=>window.print()<\/script>
   </body></html>`
@@ -134,6 +201,80 @@ export default function Reportes({ user }) {
         if (cliente) q = q.eq('cliente_id', parseInt(cliente))
         const { data: d } = await q
         resultado = d
+
+      } else if (tipo === 'caja_chica') {
+        if (!cliente) {
+          setData({ tipo, resultado: [], error: 'Seleccioná un cliente para generar este reporte.' })
+          setLoading(false); return
+        }
+        const cid = parseInt(cliente)
+
+        // Cobros del cliente → Débito
+        let qcob = supabase.from('cobros')
+          .select('id,periodo,fecha_generacion,total')
+          .eq('cliente_id', cid)
+          .order('fecha_generacion')
+        if (desde) qcob = qcob.gte('fecha_generacion', desde)
+        if (hasta) qcob = qcob.lte('fecha_generacion', hasta)
+
+        // Créditos adelantados del cliente → Crédito
+        let qcr = supabase.from('creditos_cliente')
+          .select('id,monto,fecha_pago,periodo_aplicar,cobros(periodo),observacion')
+          .eq('cliente_id', cid)
+          .order('fecha_pago')
+        if (desde) qcr = qcr.gte('fecha_pago', desde)
+        if (hasta) qcr = qcr.lte('fecha_pago', hasta)
+
+        // Pagos directos (completo/parcial) → Crédito
+        let qpag = supabase.from('pagos')
+          .select('id,monto,tipo,fecha_pago,cobros(periodo,cliente_id)')
+          .in('tipo', ['completo', 'parcial'])
+          .order('fecha_pago')
+        if (desde) qpag = qpag.gte('fecha_pago', desde)
+        if (hasta) qpag = qpag.lte('fecha_pago', hasta + 'T23:59:59')
+
+        const [cobRes, crRes, pagRes] = await Promise.all([qcob, qcr, qpag])
+
+        const events = []
+
+        ;(cobRes.data || []).forEach(c => {
+          events.push({
+            fecha:    c.fecha_generacion + 'T00:00:00',
+            concepto: `Cobro ${periodoLabel(c.periodo)} (N°${c.id})`,
+            debito:   Number(c.total),
+            credito:  0,
+          })
+        })
+
+        ;(crRes.data || []).forEach(cr => {
+          const per = cr.cobros?.periodo || cr.periodo_aplicar || ''
+          events.push({
+            fecha:    cr.fecha_pago + 'T00:00:00',
+            concepto: `Pago adelantado${per ? ' — ' + periodoLabel(per) : ''}`,
+            debito:   0,
+            credito:  Number(cr.monto),
+          })
+        })
+
+        ;(pagRes.data || [])
+          .filter(p => p.cobros?.cliente_id === cid)
+          .forEach(p => {
+            const per = p.cobros?.periodo || ''
+            events.push({
+              fecha:    p.fecha_pago,
+              concepto: `Pago ${p.tipo === 'completo' ? 'completo' : 'parcial'}${per ? ' — ' + periodoLabel(per) : ''}`,
+              debito:   0,
+              credito:  Number(p.monto),
+            })
+          })
+
+        // Ordenar por fecha y calcular saldo acumulado
+        events.sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+        let saldo = 0
+        resultado = events.map(ev => {
+          saldo = saldo + ev.debito - ev.credito
+          return { ...ev, saldo }
+        })
 
       } else if (tipo === 'pagos_realizados') {
         // ── Fuente 1: créditos adelantados (dinero real del cliente) ──
@@ -236,7 +377,16 @@ export default function Reportes({ user }) {
     const rows = data.resultado
     let headers, csvRows
 
-    if (data.tipo === 'pagos_realizados') {
+    if (data.tipo === 'caja_chica') {
+      headers = ['Fecha','Concepto','Débito (Gs.)','Crédito (Gs.)','Saldo (Gs.)']
+      csvRows = rows.map(r => [
+        new Date(r.fecha).toLocaleDateString('es-PY'),
+        r.concepto,
+        r.debito || '',
+        r.credito || '',
+        r.saldo,
+      ])
+    } else if (data.tipo === 'pagos_realizados') {
       headers = ['Fecha','Cliente','Período','Monto','Tipo','Medio','Observación','Usuario']
       csvRows = rows.map(r => [
         new Date(r.fecha).toLocaleDateString('es-PY'),
@@ -265,20 +415,28 @@ export default function Reportes({ user }) {
 
   const exportarPDF = () => {
     if (!data?.resultado?.length) return
+    const clienteNombre = clientes.find(c=>c.id===parseInt(cliente))?.nombre_razon_social || ''
+    const filtrosTxt = [
+      clienteNombre ? `Cliente: ${clienteNombre}` : null,
+      desde ? `Desde: ${new Date(desde+'T00:00:00').toLocaleDateString('es-PY')}` : null,
+      hasta ? `Hasta: ${new Date(hasta+'T00:00:00').toLocaleDateString('es-PY')}` : null,
+    ].filter(Boolean).join(' | ')
+
+    // Caja chica tiene su propio template
+    if (data.tipo === 'caja_chica') {
+      const w = window.open('','_blank')
+      w.document.write(htmlCajaChica(clienteNombre, data.resultado, filtrosTxt))
+      w.document.close()
+      return
+    }
+
     const tituloMap = {
       animales_activos:'Resumen de animales activos', estado_cuenta:'Estado de cuenta',
       pagos_realizados:'Pagos realizados', bajas:'Bajas de animales',
       salidas:'Salidas de animales', reclasificados:'Animales reclasificados',
       movimiento_general:'Movimiento general de animales',
     }
-    const titulo = tituloMap[data.tipo]||data.tipo
-    const clienteNombre = clientes.find(c=>c.id===parseInt(cliente))?.nombre_razon_social
-    const filtrosTxt = [
-      clienteNombre?`Cliente: ${clienteNombre}`:null,
-      desde?`Desde: ${new Date(desde+'T00:00:00').toLocaleDateString('es-PY')}`:null,
-      hasta?`Hasta: ${new Date(hasta+'T00:00:00').toLocaleDateString('es-PY')}`:null,
-    ].filter(Boolean).join(' | ')
-
+    const titulo = tituloMap[data.tipo] || data.tipo
     const w = window.open('','_blank')
     w.document.write(htmlReporte(titulo, columnasPDF(data.tipo), filasPDF(data.tipo, data.resultado), filtrosTxt))
     w.document.close()
@@ -325,7 +483,11 @@ export default function Reportes({ user }) {
         </div>
       </div>
 
-      {data && (
+      {data?.error && (
+        <div className="alert alert-info">{data.error}</div>
+      )}
+
+      {data && !data.error && (
         <div className="table-container">
           <div style={{ padding:'12px 16px', fontWeight:700, borderBottom:'1px solid var(--border)' }}>
             {TIPOS.find(t=>t.value===data.tipo)?.label} — {data.resultado?.length||0} registros
@@ -396,6 +558,56 @@ export default function Reportes({ user }) {
                 </tbody>
               </table>
             )}
+
+            {/* ── Caja chica / movimiento de caja ── */}
+            {data.tipo === 'caja_chica' && (() => {
+              const totalDeb = data.resultado.reduce((s,r)=>s+r.debito,0)
+              const totalCre = data.resultado.reduce((s,r)=>s+r.credito,0)
+              const saldoFin = data.resultado.length ? data.resultado[data.resultado.length-1].saldo : 0
+              return (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Concepto</th>
+                      <th style={{textAlign:'right'}}>Débito (Gs.)</th>
+                      <th style={{textAlign:'right'}}>Crédito (Gs.)</th>
+                      <th style={{textAlign:'right'}}>Saldo (Gs.)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!hayResultados
+                      ? <tr><td colSpan={5} className="table-empty">Sin movimientos para el período seleccionado.</td></tr>
+                      : <>
+                          {data.resultado.map((r,i)=>(
+                            <tr key={i}>
+                              <td>{new Date(r.fecha).toLocaleDateString('es-PY')}</td>
+                              <td>{r.concepto}</td>
+                              <td style={{textAlign:'right',color:r.debito>0?'var(--red)':'var(--text-secondary)'}}>
+                                {r.debito>0 ? gs(r.debito)+' Gs.' : '-'}
+                              </td>
+                              <td style={{textAlign:'right',color:r.credito>0?'var(--green)':'var(--text-secondary)'}}>
+                                {r.credito>0 ? gs(r.credito)+' Gs.' : '-'}
+                              </td>
+                              <td style={{textAlign:'right',fontWeight:600,color:r.saldo>0?'var(--red)':'var(--green)'}}>
+                                {gs(r.saldo)} Gs.
+                              </td>
+                            </tr>
+                          ))}
+                          <tr style={{background:'var(--table-head)',fontWeight:700}}>
+                            <td colSpan={2} style={{fontWeight:700}}>TOTALES</td>
+                            <td style={{textAlign:'right',color:'var(--red)',fontWeight:700}}>{gs(totalDeb)} Gs.</td>
+                            <td style={{textAlign:'right',color:'var(--green)',fontWeight:700}}>{gs(totalCre)} Gs.</td>
+                            <td style={{textAlign:'right',fontWeight:700,color:saldoFin>0?'var(--red)':'var(--green)'}}>
+                              {gs(saldoFin)} Gs.
+                            </td>
+                          </tr>
+                        </>
+                    }
+                  </tbody>
+                </table>
+              )
+            })()}
 
             {/* ── Movimientos (bajas, salidas, reclasificados, movimiento_general) ── */}
             {(data.tipo==='bajas'||data.tipo==='salidas'||data.tipo==='reclasificados'||data.tipo==='movimiento_general') && (
