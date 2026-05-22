@@ -263,10 +263,10 @@ export default function Animales({ user }) {
     resumen[n] = (resumen[n] || 0) + a.cantidad
   })
   const totalAnimales = animales.reduce((s, a) => s + a.cantidad, 0)
-  const gravada = animales.filter(a => a.categorias?.cobrable)
+  const total = animales.filter(a => a.categorias?.cobrable)
     .reduce((s, a) => s + (a.cantidad * Number(a.precio)), 0)
-  const iva = Math.round(gravada * 0.1)
-  const total = gravada + iva
+  const iva = Math.round(total / 11)
+  const gravada = total - iva
 
   const hayAnimales = clienteSelec && animales.length > 0
 
