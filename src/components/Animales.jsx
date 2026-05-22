@@ -273,8 +273,8 @@ export default function Animales({ user }) {
   // Opts para modales (categorías presentes en los animales del cliente)
   const catClienteOpts = [...new Set(animales.map(a => a.categoria_id))].map(id => {
     const cat = animales.find(a => a.categoria_id === id)
-    const total = animales.filter(a => a.categoria_id === id).reduce((s, a) => s + a.cantidad, 0)
-    return { value: id, label: cat?.categorias?.nombre || '', sublabel: `${total} disponibles`, searchText: cat?.categorias?.nombre || '' }
+    const totalCat = animales.filter(a => a.categoria_id === id).reduce((s, a) => s + a.cantidad, 0)
+    return { value: id, label: cat?.categorias?.nombre || '', sublabel: `${totalCat} disponibles`, searchText: cat?.categorias?.nombre || '' }
   })
 
   return (
