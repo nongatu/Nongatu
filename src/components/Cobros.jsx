@@ -470,6 +470,7 @@ export default function Cobros({ user }) {
                     <td>{cr.periodo_aplicar?periodoLabel(cr.periodo_aplicar):'Primer cobro pendiente'}</td>
                     <td>{cr.observacion||'-'}</td>
                     <td><span className={`badge badge-${cr.aplicado?'green':'orange'}`}>{cr.aplicado?'Aplicado':'Pendiente'}</span></td>
+<td>{puedeEliminar && !cr.aplicado && <button className="btn btn-red btn-sm" onClick={()=>eliminarCredito(cr.id)}>Eliminar</button>}</td>
                   </tr>
                 ))}
               </tbody>
