@@ -54,8 +54,15 @@ CREATE TABLE IF NOT EXISTS animales (
   estado VARCHAR(20) DEFAULT 'activo',
   fecha_registro TIMESTAMPTZ DEFAULT NOW(),
   usuario_id INTEGER REFERENCES usuarios(id),
+  fecha_inicio_cobro DATE DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- =============================================
+-- MIGRACIÓN: ejecutar en Supabase → SQL Editor
+-- si la tabla animales ya existe en producción
+-- =============================================
+-- ALTER TABLE animales ADD COLUMN IF NOT EXISTS fecha_inicio_cobro DATE DEFAULT NULL;
 
 CREATE TABLE IF NOT EXISTS movimientos (
   id SERIAL PRIMARY KEY,
