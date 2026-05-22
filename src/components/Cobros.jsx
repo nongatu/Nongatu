@@ -10,18 +10,92 @@ const enLetras=n=>{const v=Math.round(Number(n)||0);return(v===0?'Cero':_w(v))+'
 
 function periodoActual(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
 
-function htmlRecibo(recibo,cliente,detalle){
-  const filas=(detalle||[]).filter(d=>d.cantidad>0).map(d=>`<tr><td>${d.categorias?.nombre||''}</td><td style="text-align:center">${d.cantidad}</td><td style="text-align:right">${gs(d.precio_unitario||0)}</td><td style="text-align:right">${gs(d.subtotal||0)}</td></tr>`).join('')
-  const bloque=copia=>`<div class="recibo"><div class="header"><div class="empresa"><div class="nombre">QUERANDY S.A.</div><div>RUC: 80094734-7</div><div>Mcal. Estigarribia - Boquerón</div></div><div class="nro-box"><div class="nro-label">RECIBO N°</div><div class="nro">${String(recibo.numero||'').padStart(6,'0')}</div><div class="total-box">${gs(recibo.total)} Gs.</div></div></div><div class="linea"></div><table class="datos"><tr><td class="lbl">Fecha:</td><td>${new Date((recibo.fecha||'')+'T00:00:00').toLocaleDateString('es-PY')}</td></tr><tr><td class="lbl">Recibimos de:</td><td>${cliente}</td></tr><tr><td class="lbl">Importe en letras:</td><td>${enLetras(recibo.total)}</td></tr><tr><td class="lbl">Concepto:</td><td>Alquiler de Pastura - ${periodoLabel(recibo.periodo||'')}</td></tr></table><table class="detalle"><thead><tr><th>Detalle</th><th>Cant.</th><th>Precio</th><th>Total</th></tr></thead><tbody>${filas}</tbody></table><div class="total-final">TOTAL PAGADO: ${gs(recibo.total)} Gs.</div><div class="firma">Firma</div><div class="copia">${copia}</div></div>`
-  return`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Recibo</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;padding:10px}.recibo{width:100%;max-width:680px;margin:0 auto 16px;border:1px solid #999;padding:14px}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}.empresa .nombre{font-size:16px;font-weight:700;margin-bottom:2px}.nro-box{text-align:right;min-width:180px}.nro-label{font-size:10px;font-weight:700;text-transform:uppercase}.nro{font-size:22px;font-weight:700}.total-box{font-size:15px;font-weight:700;border:2px solid #000;padding:4px 8px;margin-top:4px;text-align:center}.linea{border-top:1px solid #999;margin:8px 0}.datos{width:100%;margin-bottom:10px}.datos td{padding:2px 4px;vertical-align:top}.datos .lbl{font-weight:700;white-space:nowrap;width:140px}.detalle{width:100%;border-collapse:collapse;margin-bottom:10px}.detalle th,.detalle td{border:1px solid #ccc;padding:4px 6px;font-size:11px}.detalle th{background:#f0f0f0;font-weight:700}.total-final{text-align:right;font-weight:700;font-size:13px;border-top:2px solid #000;padding-top:6px;margin-bottom:20px}.firma{text-align:right;border-top:1px solid #000;width:200px;margin-left:auto;padding-top:2px;font-size:11px}.copia{text-align:right;font-size:10px;font-weight:700;margin-top:6px;color:#555}</style></head><body>${bloque('ORIGINAL: CLIENTE')}${bloque('COPIA: CONTABILIDAD')}<script>window.onload=()=>{window.print()}<\/script></body></html>`
+// ── HTML Recibo (1 por período, con detalle de pagos) ─────────────────────────
+function htmlRecibo(recibo, cliente, detalle, pagos=[]) {
+  const filas=(detalle||[]).filter(d=>d.cantidad>0).map(d=>
+    `<tr><td>${d.categorias?.nombre||''}</td><td style="text-align:center">${d.cantidad}</td><td style="text-align:right">${gs(d.precio_unitario||0)}</td><td style="text-align:right">${gs(d.subtotal||0)}</td></tr>`
+  ).join('')
+
+  const totalCobro = (detalle||[]).filter(d=>d.cantidad>0).reduce((s,d)=>s+Number(d.subtotal||0),0)
+  const totalPagado = pagos.reduce((s,p)=>s+Number(p.monto),0)
+  const saldo = totalCobro - totalPagado
+
+  const filasPagos = pagos.map(p=>{
+    const fecha = p.fecha_pago ? new Date(p.fecha_pago).toLocaleDateString('es-PY') : '-'
+    const medio = p.medio_pago==='transferencia'?'Transferencia bancaria':'Efectivo'
+    const tipo = p.tipo==='credito_adelantado'?'Pago adelantado':'Pago directo'
+    return `<tr><td>${fecha}</td><td>${tipo}</td><td>${medio}</td><td style="text-align:right;font-weight:700">${gs(p.monto)} Gs.</td></tr>`
+  }).join('')
+
+  const seccionPagos = pagos.length>0 ? `
+    <div style="margin-top:10px;font-weight:700;font-size:11px;text-transform:uppercase;border-top:1px solid #ccc;padding-top:8px;margin-bottom:4px">Pagos aplicados</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
+      <thead><tr style="background:#f0f0f0">
+        <th style="padding:3px 5px;font-size:10px;text-align:left;border:1px solid #ccc">Fecha</th>
+        <th style="padding:3px 5px;font-size:10px;text-align:left;border:1px solid #ccc">Tipo</th>
+        <th style="padding:3px 5px;font-size:10px;text-align:left;border:1px solid #ccc">Medio</th>
+        <th style="padding:3px 5px;font-size:10px;text-align:right;border:1px solid #ccc">Monto</th>
+      </tr></thead>
+      <tbody>${filasPagos}</tbody>
+    </table>
+    <div style="text-align:right;font-size:12px;font-weight:700">TOTAL PAGADO: ${gs(totalPagado)} Gs.</div>
+    ${saldo>0?`<div style="text-align:right;font-size:12px;color:#c00">SALDO PENDIENTE: ${gs(saldo)} Gs.</div>`:'<div style="text-align:right;font-size:12px;color:#060">CANCELADO TOTALMENTE</div>'}
+  ` : ''
+
+  const bloque=copia=>`<div class="recibo">
+    <div class="header">
+      <div class="empresa"><div class="nombre">QUERANDY S.A.</div><div>RUC: 80094734-7</div><div>Mcal. Estigarribia - Boquerón</div></div>
+      <div class="nro-box"><div class="nro-label">RECIBO N°</div><div class="nro">${String(recibo.numero||'').padStart(6,'0')}</div><div class="total-box">${gs(totalPagado)} Gs.</div></div>
+    </div>
+    <div class="linea"></div>
+    <table class="datos">
+      <tr><td class="lbl">Fecha:</td><td>${new Date((recibo.fecha||'')+'T00:00:00').toLocaleDateString('es-PY')}</td></tr>
+      <tr><td class="lbl">Recibimos de:</td><td>${cliente}</td></tr>
+      <tr><td class="lbl">Importe en letras:</td><td>${enLetras(totalPagado)}</td></tr>
+      <tr><td class="lbl">Concepto:</td><td>Alquiler de Pastura - ${periodoLabel(recibo.periodo||'')}</td></tr>
+    </table>
+    <table class="detalle">
+      <thead><tr><th>Categoría</th><th>Cant.</th><th>Precio</th><th>Total período</th></tr></thead>
+      <tbody>${filas}</tbody>
+    </table>
+    <div style="text-align:right;font-weight:700;font-size:12px;border-top:1px solid #000;padding-top:4px;margin-bottom:10px">TOTAL DEL PERÍODO: ${gs(totalCobro)} Gs.</div>
+    ${seccionPagos}
+    <div class="firma">Firma</div>
+    <div class="copia">${copia}</div>
+  </div>`
+
+  return`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Recibo ${periodoLabel(recibo.periodo||'')}</title><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:12px;padding:10px}
+    .recibo{width:100%;max-width:680px;margin:0 auto 20px;border:1px solid #999;padding:14px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+    .empresa .nombre{font-size:16px;font-weight:700;margin-bottom:2px}
+    .nro-box{text-align:right;min-width:180px}
+    .nro-label{font-size:10px;font-weight:700;text-transform:uppercase}
+    .nro{font-size:22px;font-weight:700}
+    .total-box{font-size:15px;font-weight:700;border:2px solid #000;padding:4px 8px;margin-top:4px;text-align:center}
+    .linea{border-top:1px solid #999;margin:8px 0}
+    .datos{width:100%;margin-bottom:10px}
+    .datos td{padding:2px 4px;vertical-align:top}
+    .datos .lbl{font-weight:700;white-space:nowrap;width:140px}
+    .detalle{width:100%;border-collapse:collapse;margin-bottom:8px}
+    .detalle th,.detalle td{border:1px solid #ccc;padding:4px 6px;font-size:11px}
+    .detalle th{background:#f0f0f0;font-weight:700}
+    .firma{text-align:right;border-top:1px solid #000;width:200px;margin-left:auto;padding-top:2px;font-size:11px;margin-top:16px}
+    .copia{text-align:right;font-size:10px;font-weight:700;margin-top:6px;color:#555}
+    @media print{.recibo{page-break-inside:avoid}}
+  </style></head><body>
+    ${bloque('ORIGINAL: CLIENTE')}
+    ${bloque('COPIA: CONTABILIDAD')}
+    <script>window.onload=()=>{window.print()}<\/script>
+  </body></html>`
 }
 
 function calcularCobro(animalesCli, periodo) {
   const [year, month] = periodo.split('-').map(Number)
   const finPeriodo = new Date(year, month, 0)
   const aptos = animalesCli.filter(a =>
-    a.categorias?.cobrable &&
-    new Date(a.fecha_ingreso+'T00:00:00') <= finPeriodo
+    a.categorias?.cobrable && new Date(a.fecha_ingreso+'T00:00:00') <= finPeriodo
   )
   if (!aptos.length) return null
   const detalles = {}
@@ -100,7 +174,7 @@ export default function Cobros({ user }) {
   const cargar = async () => {
     setLoading(true)
     const [{data:cb},{data:rc},{data:cr}] = await Promise.all([
-      supabase.from('cobros').select('*, clientes(nombre_razon_social), pagos(monto,tipo,fecha_pago)').order('periodo').order('cliente_id'),
+      supabase.from('cobros').select('*, clientes(nombre_razon_social), pagos(id,monto,tipo,fecha_pago,medio_pago)').order('periodo').order('cliente_id'),
       supabase.from('recibos').select('*, clientes(nombre_razon_social), cobros(periodo)').order('created_at',{ascending:false}),
       supabase.from('creditos_cliente').select('*, clientes(nombre_razon_social), cobros(periodo)').order('fecha_pago',{ascending:false}),
     ])
@@ -143,13 +217,13 @@ export default function Cobros({ user }) {
       }
     }
     await aplicarCreditosFIFO()
-    setMsg({type:'success',text:`Se generaron ${total} cobros. Créditos aplicados automáticamente.`})
+    setMsg({type:'success',text:`Se generaron ${total} cobros. Créditos aplicados.`})
     await cargar(); setProcesando(false)
   }
 
   const recalcularTodos = async () => {
     if (!puedeGenerar) return
-    if (!confirm('Esto va a eliminar todos los cobros y recrearlos con montos correctos. Los créditos se reaplicarán. ¿Continuás?')) return
+    if (!confirm('Elimina todos los cobros y los recrea. Los créditos se reaplicarán. ¿Continuás?')) return
     setProcesando(true); setMsg(null)
     const {data:todosLosCobros} = await supabase.from('cobros').select('id')
     for (const c of todosLosCobros||[]) {
@@ -196,15 +270,15 @@ export default function Cobros({ user }) {
       }
     }
     await aplicarCreditosFIFO()
-    setMsg({type:'success',text:`Recalculado: ${total} cobros generados. Créditos reaplicados.`})
+    await generarRecibosConsolidados()
+    setMsg({type:'success',text:`Recalculado: ${total} cobros. Créditos y recibos regenerados.`})
     await cargar(); setProcesando(false)
   }
 
+  // ── FIFO: solo crea pagos, NO crea recibos ────────────────────────────────
   const aplicarCreditosFIFO = async () => {
     const {data:cobrosActuales} = await supabase.from('cobros').select('*, pagos(monto)').order('periodo').order('cliente_id')
     const {data:creditosActuales} = await supabase.from('creditos_cliente').select('*').eq('aplicado',false).order('fecha_pago')
-    const {data:recibosActuales} = await supabase.from('recibos').select('id')
-    let nroRecibo = (recibosActuales?.length||0)+1
     const creditosPorCliente = {}
     ;(creditosActuales||[]).forEach(cr => {
       if (!creditosPorCliente[cr.cliente_id]) creditosPorCliente[cr.cliente_id] = []
@@ -221,17 +295,12 @@ export default function Cobros({ user }) {
         const aplicar = Math.min(cr.restante, saldo)
         const {data:pago} = await supabase.from('pagos').insert({
           cobro_id:cobro.id, monto:aplicar, tipo:'credito_adelantado',
+          medio_pago:'efectivo',
           fecha_pago:cr.fecha_pago+'T00:00:00', usuario_id:cr.usuario_id
         }).select().single()
         if (pago) {
           cr.restante -= aplicar
           saldo -= aplicar
-          const numR = String(nroRecibo++).padStart(6,'0')
-          const {data:det2} = await supabase.from('cobro_detalles').select('*,categorias(nombre)').eq('cobro_id',cobro.id)
-          await supabase.from('recibos').insert({
-            pago_id:pago.id, cobro_id:cobro.id, numero:numR,
-            fecha:cr.fecha_pago, cliente_id:cobro.cliente_id, total:aplicar, detalle:det2
-          })
           if (cr.restante===0) {
             await supabase.from('creditos_cliente').update({aplicado:true,cobro_id:cobro.id}).eq('id',cr.id)
           }
@@ -243,10 +312,37 @@ export default function Cobros({ user }) {
     }
   }
 
-  const aplicarCreditosManual = async () => {
+  // ── Generar 1 recibo por período ──────────────────────────────────────────
+  const generarRecibosConsolidados = async () => {
+    const {data:cobrosData} = await supabase.from('cobros')
+      .select('id, cliente_id, periodo, total, pagos(id,monto,tipo,fecha_pago,medio_pago), cobro_detalles(*,categorias(nombre))')
+      .order('periodo')
+    if (!cobrosData?.length) return
+    // Borrar recibos existentes
+    const cobroIds = cobrosData.map(c=>c.id)
+    await supabase.from('recibos').delete().in('cobro_id', cobroIds)
+    let nro = 1
+    for (const cobro of cobrosData) {
+      const totalPagado = cobro.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
+      if (totalPagado===0) continue
+      const ultimoPago = cobro.pagos?.sort((a,b)=>new Date(a.fecha_pago)-new Date(b.fecha_pago)).slice(-1)[0]
+      await supabase.from('recibos').insert({
+        pago_id: ultimoPago?.id || null,
+        cobro_id: cobro.id,
+        numero: String(nro++).padStart(6,'0'),
+        fecha: new Date().toISOString().split('T')[0],
+        cliente_id: cobro.cliente_id,
+        total: totalPagado,
+        detalle: cobro.cobro_detalles
+      })
+    }
+  }
+
+  const aplicarYGenerarRecibos = async () => {
     setProcesando(true); setMsg(null)
     await aplicarCreditosFIFO()
-    setMsg({type:'success',text:'Créditos aplicados FIFO.'})
+    await generarRecibosConsolidados()
+    setMsg({type:'success',text:'Créditos aplicados y recibos generados (1 por período).'})
     await cargar(); setProcesando(false)
   }
 
@@ -269,11 +365,18 @@ export default function Cobros({ user }) {
     if (pe) return setMsg({type:'error',text:'Error al registrar el pago.'})
     const nuevoEstado = montoNum>=saldo?'pagado':'parcial'
     await supabase.from('cobros').update({estado:nuevoEstado}).eq('id',cobro.id)
-    const nroR = String(recibos.length+1).padStart(6,'0')
+    // Regenerar recibo consolidado para este cobro
     const {data:det2} = await supabase.from('cobro_detalles').select('*,categorias(nombre)').eq('cobro_id',cobro.id)
+    const {data:pagosActuales} = await supabase.from('pagos').select('id,monto,tipo,fecha_pago,medio_pago').eq('cobro_id',cobro.id)
+    const totalPagado = pagosActuales?.reduce((s,p)=>s+Number(p.monto),0)||0
+    // Borrar recibo anterior del período
+    await supabase.from('recibos').delete().eq('cobro_id',cobro.id)
+    const {data:recActuales} = await supabase.from('recibos').select('id').order('id',{ascending:false}).limit(1)
+    const maxNro = recActuales?.[0]?.id||0
+    const nroR = String(maxNro+1).padStart(6,'0')
     await supabase.from('recibos').insert({
       pago_id:pago.id, cobro_id:cobro.id, numero:nroR,
-      fecha:fecha_pago, cliente_id:cobro.cliente_id, total:montoNum, detalle:det2
+      fecha:fecha_pago, cliente_id:cobro.cliente_id, total:totalPagado, detalle:det2
     })
     setModal(null); cargar()
   }
@@ -326,9 +429,13 @@ export default function Cobros({ user }) {
     cargar()
   }
 
-  const verPDF = r => {
-    const w=window.open('','_blank')
-    w.document.write(htmlRecibo({...r,periodo:r.cobros?.periodo||''},r.clientes?.nombre_razon_social||'',r.detalle||[]))
+  const verPDF = async r => {
+    const {data:pagosData} = await supabase.from('pagos')
+      .select('monto,tipo,fecha_pago,medio_pago')
+      .eq('cobro_id', r.cobro_id)
+      .order('fecha_pago')
+    const w = window.open('','_blank')
+    w.document.write(htmlRecibo({...r,periodo:r.cobros?.periodo||''},r.clientes?.nombre_razon_social||'',r.detalle||[],pagosData||[]))
     w.document.close()
   }
 
@@ -336,8 +443,7 @@ export default function Cobros({ user }) {
   const getPagado = c => c.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
   const getSaldo = c => Number(c.total)-getPagado(c)
   const getCreditoAplicado = c => c.pagos?.filter(p=>p.tipo==='credito_adelantado').reduce((s,p)=>s+Number(p.monto),0)||0
-
-  const filtroBarra = {display:'flex',gap:10,marginBottom:14,flexWrap:'wrap',alignItems:'flex-end'}
+  const fb = {display:'flex',gap:10,marginBottom:14,flexWrap:'wrap',alignItems:'flex-end'}
 
   return (
     <div>
@@ -366,10 +472,10 @@ export default function Cobros({ user }) {
 
       {msg&&<div className={`alert alert-${msg.type}`}>{msg.text}</div>}
 
-      {/* ── TAB PAGOS ── */}
+      {/* ── PAGOS ── */}
       {tab==='pagos'&&(
         <>
-          <div style={filtroBarra}>
+          <div style={fb}>
             <div className="form-group" style={{minWidth:220}}>
               <label>Filtrar por cliente</label>
               <select value={filtroCliente} onChange={e=>setFiltroCliente(e.target.value)}>
@@ -378,7 +484,7 @@ export default function Cobros({ user }) {
               </select>
             </div>
             {puedeRegistrar&&<button className="btn btn-purple" onClick={abrirCredito}>+ Pago adelantado</button>}
-            {puedeGenerar&&<button className="btn btn-blue btn-sm" onClick={aplicarCreditosManual} disabled={procesando}>Aplicar créditos</button>}
+            {puedeGenerar&&<button className="btn btn-blue btn-sm" onClick={aplicarYGenerarRecibos} disabled={procesando}>Aplicar créditos</button>}
             {puedeGenerar&&<button className="btn btn-red btn-sm" onClick={recalcularTodos} disabled={procesando}>Recalcular todos</button>}
           </div>
           <div className="table-container"><div className="table-wrapper">
@@ -386,7 +492,7 @@ export default function Cobros({ user }) {
               <thead><tr><th>N°</th><th>Cliente</th><th>Período</th><th>Total</th><th>Pagado</th><th>Crédito</th><th>Saldo</th><th>Estado</th><th>Vencimiento</th>{(puedeRegistrar||puedeEliminar)&&<th>Acciones</th>}</tr></thead>
               <tbody>
                 {loading?<tr><td colSpan={10} className="table-empty">Cargando...</td></tr>
-                :cobrosFiltrados.length===0?<tr><td colSpan={10} className="table-empty">Sin cobros. Usá "Generar pendientes".</td></tr>
+                :cobrosFiltrados.length===0?<tr><td colSpan={10} className="table-empty">Sin cobros.</td></tr>
                 :cobrosFiltrados.map(c=>{
                   const pagado=getPagado(c),saldo=getSaldo(c),cred=getCreditoAplicado(c)
                   const venc=c.fecha_vencimiento&&new Date(c.fecha_vencimiento)<new Date()&&c.estado!=='pagado'
@@ -421,10 +527,10 @@ export default function Cobros({ user }) {
         </>
       )}
 
-      {/* ── TAB RECIBOS ── */}
+      {/* ── RECIBOS ── */}
       {tab==='recibos'&&(
         <>
-          <div style={filtroBarra}>
+          <div style={fb}>
             <div className="form-group" style={{minWidth:200}}>
               <label>Cliente</label>
               <select value={filtroRecibosCliente} onChange={e=>setFiltroRecibosCliente(e.target.value)}>
@@ -443,14 +549,14 @@ export default function Cobros({ user }) {
           </div>
           <div className="table-container"><div className="table-wrapper">
             <table>
-              <thead><tr><th>N° Recibo</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Ver PDF</th><th>Eliminar</th></tr></thead>
+              <thead><tr><th>N° Recibo</th><th>Cliente</th><th>Período</th><th>Fecha</th><th>Total pagado</th><th>Ver PDF</th><th>Eliminar</th></tr></thead>
               <tbody>
                 {recibos.filter(r=>
                   (!filtroRecibosCliente||r.cliente_id===parseInt(filtroRecibosCliente))&&
                   (!filtroRecibosDesde||r.fecha>=filtroRecibosDesde)&&
                   (!filtroRecibosHasta||r.fecha<=filtroRecibosHasta)
                 ).length===0
-                  ?<tr><td colSpan={6} className="table-empty">Sin recibos.</td></tr>
+                  ?<tr><td colSpan={7} className="table-empty">Sin recibos. Usá "Aplicar créditos" para generarlos.</td></tr>
                   :recibos.filter(r=>
                     (!filtroRecibosCliente||r.cliente_id===parseInt(filtroRecibosCliente))&&
                     (!filtroRecibosDesde||r.fecha>=filtroRecibosDesde)&&
@@ -459,6 +565,7 @@ export default function Cobros({ user }) {
                     <tr key={r.id}>
                       <td style={{fontWeight:700}}>{String(r.numero||'').padStart(6,'0')}</td>
                       <td>{r.clientes?.nombre_razon_social}</td>
+                      <td>{periodoLabel(r.cobros?.periodo||'')}</td>
                       <td>{new Date((r.fecha||'')+'T00:00:00').toLocaleDateString('es-PY')}</td>
                       <td>{gs(r.total)} Gs.</td>
                       <td><button className="btn btn-blue btn-sm" onClick={()=>verPDF(r)}>Ver PDF</button></td>
@@ -472,10 +579,10 @@ export default function Cobros({ user }) {
         </>
       )}
 
-      {/* ── TAB CRÉDITOS ── */}
+      {/* ── CRÉDITOS ── */}
       {tab==='creditos'&&(
         <>
-          <div style={filtroBarra}>
+          <div style={fb}>
             <div className="form-group" style={{minWidth:200}}>
               <label>Cliente</label>
               <select value={filtroCreditosCliente} onChange={e=>setFiltroCreditosCliente(e.target.value)}>
@@ -565,7 +672,7 @@ export default function Cobros({ user }) {
       {modal==='credito'&&(
         <div className="modal-overlay"><div className="modal">
           <h3>Registrar pago adelantado</h3>
-          <p style={{marginBottom:16,fontSize:13,color:'var(--text-secondary)'}}>Se registra como crédito a favor del cliente. Se aplica automáticamente al cobro del período indicado, o al primer cobro pendiente si no se especifica.</p>
+          <p style={{marginBottom:16,fontSize:13,color:'var(--text-secondary)'}}>Se registra como crédito a favor del cliente. Se aplica al cobro del período indicado o al primer cobro pendiente.</p>
           <div className="form-group" style={{marginBottom:14}}>
             <label>Cliente *</label>
             <select value={modalForm.cliente_id} onChange={e=>setModalForm({...modalForm,cliente_id:e.target.value})}>
