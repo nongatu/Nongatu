@@ -26,6 +26,7 @@ export default function Animales({ user }) {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
   const [modal, setModal] = useState(null)
+  const [editando, setEditando] = useState(null)
   const [modalForm, setModalForm] = useState({})
 
   const perms = user?.rol === 'Administrador' ? { todo: true } : (user?.permisos || {})
@@ -38,6 +39,19 @@ export default function Animales({ user }) {
     supabase.from('categorias').select('*').order('orden')
       .then(({ data }) => setCategorias(data || []))
   }, [])
+
+  const cargarParaEditar = (a) => {
+    setEditando(a.id)
+    setForm({
+      categoria_id: String(a.categoria_id),
+      cantidad: String(a.cantidad),
+      fecha_ingreso: a.fecha_ingreso,
+      precio: String(a.precio),
+      observaciones: a.observaciones || '',
+      reclasMode: false, nueva_categoria_id: ''
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const cargarAnimales = useCallback(async () => {
     if (!clienteSelec) { setAnimales([]); return }
@@ -62,30 +76,39 @@ export default function Animales({ user }) {
     .filter(c => String(c.id) !== String(form.categoria_id))
     .map(c => ({ value: c.id, label: c.nombre, searchText: c.nombre }))
 
-  const resetForm = () => setForm({
+  const resetForm = () => {
+  setEditando(null)
+  setForm({
     categoria_id: '', cantidad: '',
     fecha_ingreso: new Date().toISOString().split('T')[0],
     precio: '', observaciones: '', reclasMode: false, nueva_categoria_id: ''
   })
+}
 
   // ── Guardar animal normal ─────────────────────────────────────────────────
-  const guardarNormal = async () => {
-    if (!clienteSelec) return setMsg({ type: 'error', text: 'Seleccioná un cliente.' })
-    if (!form.categoria_id || !form.cantidad || !form.fecha_ingreso)
-      return setMsg({ type: 'error', text: 'Completá los campos obligatorios.' })
-    await supabase.from('animales').insert({
-      cliente_id: parseInt(clienteSelec),
-      categoria_id: parseInt(form.categoria_id),
-      cantidad: parseInt(form.cantidad),
-      fecha_ingreso: form.fecha_ingreso,
-      precio: parseInt(form.precio) || 0,
-      observaciones: form.observaciones,
-      estado: 'activo', usuario_id: user?.id,
-      fecha_registro: new Date().toISOString(),
-    })
-    setMsg({ type: 'success', text: 'Animal registrado correctamente.' })
-    resetForm(); cargarAnimales()
-  }
+  if (editando) {
+  await supabase.from('animales').update({
+    categoria_id: parseInt(form.categoria_id),
+    cantidad: parseInt(form.cantidad),
+    fecha_ingreso: form.fecha_ingreso,
+    precio: parseInt(form.precio) || 0,
+    observaciones: form.observaciones,
+  }).eq('id', editando)
+  setMsg({ type: 'success', text: 'Registro actualizado correctamente.' })
+  setEditando(null)
+} else {
+  await supabase.from('animales').insert({
+    cliente_id: parseInt(clienteSelec),
+    categoria_id: parseInt(form.categoria_id),
+    cantidad: parseInt(form.cantidad),
+    fecha_ingreso: form.fecha_ingreso,
+    precio: parseInt(form.precio) || 0,
+    observaciones: form.observaciones,
+    estado: 'activo', usuario_id: user?.id,
+    fecha_registro: new Date().toISOString(),
+  })
+  setMsg({ type: 'success', text: 'Animal registrado correctamente.' })
+}
 
   // ── Guardar reclasificación ───────────────────────────────────────────────
   const guardarReclasificacion = async () => {
@@ -358,8 +381,8 @@ export default function Animales({ user }) {
             <button className="btn btn-gray" onClick={abrirBaja} disabled={!hayAnimales}>Baja (F9)</button>
             {puedeEliminar && <button className="btn btn-red" disabled>Eliminar (F11)</button>}
             <button className="btn btn-green" onClick={guardar} disabled={saving}>
-              {saving ? 'Guardando...' : form.reclasMode ? 'Guardar reclasificación' : 'Guardar'}
-            </button>
+              {saving ? 'Guardando...' : editando ? 'Actualizar' : form.reclasMode ? 'Guardar reclasificación' : 'Guardar'}
+            </button> {editando && <button className="btn btn-outline" onClick={resetForm}>Cancelar edición</button>}
           </div>
         </div>
       )}
@@ -397,9 +420,12 @@ export default function Animales({ user }) {
                   <td>{a.fecha_registro ? new Date(a.fecha_registro).toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                   <td>{a.usuarios?.nombre_usuario || '-'}</td>
                   <td>
-                    {puedeEliminar && (
-                      <button className="btn btn-red btn-sm" onClick={() => eliminar(a.id)}>Eliminar</button>
-                    )}
+                    <div style={{display:'flex', gap:4}}>
+  <button className="btn btn-blue btn-sm" onClick={() => cargarParaEditar(a)}>Editar</button>
+  {puedeEliminar && (
+    <button className="btn btn-red btn-sm" onClick={() => eliminar(a.id)}>Eliminar</button>
+  )}
+</div>
                   </td>
                 </tr>
               ))}
