@@ -188,6 +188,8 @@ export default function Cobros({ user }) {
   const [filtroCreditosDesde, setFiltroCreditosDesde] = useState('')
   const [filtroCreditosHasta, setFiltroCreditosHasta] = useState('')
   const [seleccionados, setSeleccionados] = useState(new Set())
+  const [seleccionadosRecibos, setSeleccionadosRecibos] = useState(new Set())
+  const [seleccionadosCreditos, setSeleccionadosCreditos] = useState(new Set())
   const [movimientos, setMovimientos] = useState([])
 
   const perms = user?.rol==='Administrador'?{todo:true}:(user?.permisos||{})
@@ -217,11 +219,12 @@ export default function Cobros({ user }) {
 
   const faltantes = calcularPeriodosFaltantes(animales, cobros, clientes, movimientos)
 
+  const _pag = c => c.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
   const stats = {
-    pendiente: cobros.filter(c=>c.estado==='pendiente').reduce((s,c)=>s+Number(c.total),0),
-    pagado: cobros.filter(c=>c.estado==='pagado').reduce((s,c)=>s+Number(c.total),0),
-    parcial: cobros.filter(c=>c.estado==='parcial').reduce((s,c)=>s+Number(c.total),0),
-    mes: cobros.filter(c=>c.periodo===periodoActual()).reduce((s,c)=>s+Number(c.total),0),
+    pagado:   cobros.reduce((s,c)=>s+_pag(c), 0),
+    mes:      cobros.filter(c=>c.periodo===periodoActual()).reduce((s,c)=>s+Number(c.total),0),
+    parcial:  cobros.filter(c=>c.estado==='parcial').reduce((s,c)=>s+_pag(c), 0),
+    pendiente:cobros.reduce((s,c)=>s+Math.max(0,Number(c.total)-_pag(c)), 0),
   }
 
   const generarFaltantes = async () => {
@@ -251,7 +254,8 @@ export default function Cobros({ user }) {
       }
     }
     await aplicarCreditosFIFO()
-    setMsg({type:'success',text:`Se generaron ${total} cobros. Créditos aplicados.`})
+    await generarRecibosConsolidados()
+    setMsg({type:'success',text:`Se generaron ${total} cobros. Créditos y recibos generados.`})
     await cargar(); setProcesando(false)
   }
 
@@ -481,10 +485,49 @@ export default function Cobros({ user }) {
   }
 
   const eliminarCredito = async id => {
-    if (!confirm('¿Eliminar este pago adelantado?')) return
+    const cr = creditos.find(c=>c.id===id)
+    const aviso = cr?.aplicado
+      ? '¿Eliminar este pago adelantado? Al estar aplicado se revertirá el pago del período correspondiente y el cobro quedará pendiente.'
+      : '¿Eliminar este pago adelantado?'
+    if (!confirm(aviso)) return
+    if (cr?.aplicado && cr.cobro_id) {
+      // Eliminar el pago tipo crédito asociado a ese cobro
+      const {data:pc} = await supabase.from('pagos').select('id').eq('cobro_id',cr.cobro_id).eq('tipo','credito_adelantado')
+      if (pc?.length) {
+        await supabase.from('recibos').delete().in('pago_id',pc.map(p=>p.id))
+        await supabase.from('pagos').delete().in('id',pc.map(p=>p.id))
+      }
+      await supabase.from('recibos').delete().eq('cobro_id',cr.cobro_id)
+      // Recalcular estado del cobro
+      const {data:cb} = await supabase.from('cobros').select('total,pagos(monto)').eq('id',cr.cobro_id).single()
+      if (cb) {
+        const pagado = cb.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
+        const estado = pagado<=0?'pendiente':pagado<Number(cb.total)?'parcial':'pagado'
+        await supabase.from('cobros').update({estado}).eq('id',cr.cobro_id)
+      }
+    }
     await supabase.from('creditos_cliente').delete().eq('id',id)
     setMsg({type:'success',text:'Crédito eliminado.'})
     cargar()
+  }
+
+  const eliminarCreditosSeleccionados = async () => {
+    if (!seleccionadosCreditos.size) return
+    if (!confirm(`¿Eliminar ${seleccionadosCreditos.size} crédito(s) seleccionado(s)?`)) return
+    setProcesando(true)
+    for (const id of seleccionadosCreditos) await eliminarCredito(id)
+    setSeleccionadosCreditos(new Set())
+    setProcesando(false)
+  }
+
+  const eliminarRecibosSeleccionados = async () => {
+    if (!seleccionadosRecibos.size) return
+    if (!confirm(`¿Eliminar ${seleccionadosRecibos.size} recibo(s) seleccionado(s)?`)) return
+    setProcesando(true)
+    for (const id of seleccionadosRecibos) await supabase.from('recibos').delete().eq('id',id)
+    setSeleccionadosRecibos(new Set())
+    setMsg({type:'success',text:'Recibos eliminados.'})
+    await cargar(); setProcesando(false)
   }
 
   const verPDF = async r => {
@@ -535,10 +578,10 @@ export default function Cobros({ user }) {
       )}
 
       <div className="cobro-cards">
-        <div className="cobro-card"><div className="label">Total pendiente</div><div className="value red">{gs(stats.pendiente)} Gs.</div></div>
-        <div className="cobro-card"><div className="label">Total pagado</div><div className="value green">{gs(stats.pagado)} Gs.</div></div>
-        <div className="cobro-card"><div className="label">Parciales</div><div className="value orange">{gs(stats.parcial)} Gs.</div></div>
+        <div className="cobro-card"><div className="label">Total cobrado</div><div className="value green">{gs(stats.pagado)} Gs.</div></div>
         <div className="cobro-card"><div className="label">Total del mes</div><div className="value blue">{gs(stats.mes)} Gs.</div></div>
+        <div className="cobro-card"><div className="label">Cobrado parcial</div><div className="value orange">{gs(stats.parcial)} Gs.</div></div>
+        <div className="cobro-card"><div className="label">Total pendiente</div><div className="value red">{gs(stats.pendiente)} Gs.</div></div>
       </div>
 
       <div className="tabs">
@@ -635,48 +678,67 @@ export default function Cobros({ user }) {
       )}
 
       {/* ── RECIBOS ── */}
-      {tab==='recibos'&&(
+      {tab==='recibos'&&(()=>{
+        const recibosFiltrados = recibos.filter(r=>
+          (!filtroRecibosCliente||r.cliente_id===parseInt(filtroRecibosCliente))&&
+          (!filtroRecibosDesde||r.fecha>=filtroRecibosDesde)&&
+          (!filtroRecibosHasta||r.fecha<=filtroRecibosHasta)
+        )
+        const todosRecSel = recibosFiltrados.length>0 && recibosFiltrados.every(r=>seleccionadosRecibos.has(r.id))
+        const algunoRecSel = recibosFiltrados.some(r=>seleccionadosRecibos.has(r.id))
+        const toggleRec = id => { const n=new Set(seleccionadosRecibos); n.has(id)?n.delete(id):n.add(id); setSeleccionadosRecibos(n) }
+        const toggleTodosRec = () => {
+          const n=new Set(seleccionadosRecibos)
+          if(todosRecSel) recibosFiltrados.forEach(r=>n.delete(r.id))
+          else recibosFiltrados.forEach(r=>n.add(r.id))
+          setSeleccionadosRecibos(n)
+        }
+        return (
         <>
-          <div style={fb}>
-            <div className="form-group" style={{minWidth:200}}>
-              <label>Cliente</label>
-              <select value={filtroRecibosCliente} onChange={e=>setFiltroRecibosCliente(e.target.value)}>
-                <option value="">Todos</option>
-                {clientes.map(c=><option key={c.id} value={c.id}>{c.nombre_razon_social}</option>)}
-              </select>
+          <div style={{...fb, justifyContent:'space-between'}}>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}}>
+              <div className="form-group" style={{minWidth:200}}>
+                <label>Cliente</label>
+                <select value={filtroRecibosCliente} onChange={e=>{setFiltroRecibosCliente(e.target.value);setSeleccionadosRecibos(new Set())}}>
+                  <option value="">Todos</option>
+                  {clientes.map(c=><option key={c.id} value={c.id}>{c.nombre_razon_social}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Desde</label>
+                <input type="date" value={filtroRecibosDesde} onChange={e=>setFiltroRecibosDesde(e.target.value)}/>
+              </div>
+              <div className="form-group">
+                <label>Hasta</label>
+                <input type="date" value={filtroRecibosHasta} onChange={e=>setFiltroRecibosHasta(e.target.value)}/>
+              </div>
+              {puedeGenerar&&<button className="btn btn-blue btn-sm" onClick={aplicarYGenerarRecibos} disabled={procesando}>Regenerar recibos</button>}
             </div>
-            <div className="form-group">
-              <label>Desde</label>
-              <input type="date" value={filtroRecibosDesde} onChange={e=>setFiltroRecibosDesde(e.target.value)}/>
-            </div>
-            <div className="form-group">
-              <label>Hasta</label>
-              <input type="date" value={filtroRecibosHasta} onChange={e=>setFiltroRecibosHasta(e.target.value)}/>
-            </div>
+            {puedeEliminar&&(
+              <button className="btn btn-red" onClick={eliminarRecibosSeleccionados}
+                disabled={!algunoRecSel||procesando} style={{alignSelf:'flex-end',opacity:algunoRecSel?1:0.4}}>
+                🗑 Eliminar seleccionados{algunoRecSel?` (${recibosFiltrados.filter(r=>seleccionadosRecibos.has(r.id)).length})`:''}
+              </button>
+            )}
           </div>
           <div className="table-container"><div className="table-wrapper">
             <table>
-              <thead><tr><th>N° Recibo</th><th>Cliente</th><th>Período</th><th>Fecha</th><th>Total pagado</th><th>Ver PDF</th><th>Eliminar</th></tr></thead>
+              <thead><tr>
+                {puedeEliminar&&<th style={{width:36,textAlign:'center'}}><input type="checkbox" checked={todosRecSel} ref={el=>{if(el)el.indeterminate=algunoRecSel&&!todosRecSel}} onChange={toggleTodosRec} style={{cursor:'pointer'}}/></th>}
+                <th>N° Recibo</th><th>Cliente</th><th>Período</th><th>Fecha</th><th>Total pagado</th><th>Ver PDF</th>
+              </tr></thead>
               <tbody>
-                {recibos.filter(r=>
-                  (!filtroRecibosCliente||r.cliente_id===parseInt(filtroRecibosCliente))&&
-                  (!filtroRecibosDesde||r.fecha>=filtroRecibosDesde)&&
-                  (!filtroRecibosHasta||r.fecha<=filtroRecibosHasta)
-                ).length===0
-                  ?<tr><td colSpan={7} className="table-empty">Sin recibos. Usá "Aplicar créditos" para generarlos.</td></tr>
-                  :recibos.filter(r=>
-                    (!filtroRecibosCliente||r.cliente_id===parseInt(filtroRecibosCliente))&&
-                    (!filtroRecibosDesde||r.fecha>=filtroRecibosDesde)&&
-                    (!filtroRecibosHasta||r.fecha<=filtroRecibosHasta)
-                  ).map(r=>(
-                    <tr key={r.id}>
+                {recibosFiltrados.length===0
+                  ?<tr><td colSpan={puedeEliminar?7:6} className="table-empty">Sin recibos. Usá "Regenerar recibos" para generarlos.</td></tr>
+                  :recibosFiltrados.map(r=>(
+                    <tr key={r.id} style={{background:seleccionadosRecibos.has(r.id)?'#eff6ff':''}}>
+                      {puedeEliminar&&<td style={{textAlign:'center'}}><input type="checkbox" checked={seleccionadosRecibos.has(r.id)} onChange={()=>toggleRec(r.id)} style={{cursor:'pointer'}}/></td>}
                       <td style={{fontWeight:700}}>{String(r.numero||'').padStart(6,'0')}</td>
                       <td>{r.clientes?.nombre_razon_social}</td>
                       <td>{periodoLabel(r.cobros?.periodo||'')}</td>
                       <td>{new Date((r.fecha||'')+'T00:00:00').toLocaleDateString('es-PY')}</td>
                       <td>{gs(r.total)} Gs.</td>
                       <td><button className="btn btn-blue btn-sm" onClick={()=>verPDF(r)}>Ver PDF</button></td>
-                      <td>{puedeEliminar&&<button className="btn btn-red btn-sm" onClick={()=>eliminarRecibo(r.id)}>Eliminar</button>}</td>
                     </tr>
                   ))
                 }
@@ -684,52 +746,71 @@ export default function Cobros({ user }) {
             </table>
           </div></div>
         </>
-      )}
+      )})()}
 
       {/* ── CRÉDITOS ── */}
-      {tab==='creditos'&&(
+      {tab==='creditos'&&(()=>{
+        const creditosFiltrados = creditos.filter(cr=>
+          (!filtroCreditosCliente||cr.cliente_id===parseInt(filtroCreditosCliente))&&
+          (!filtroCreditosDesde||cr.fecha_pago>=filtroCreditosDesde)&&
+          (!filtroCreditosHasta||cr.fecha_pago<=filtroCreditosHasta)
+        )
+        const todosCrSel = creditosFiltrados.length>0 && creditosFiltrados.every(cr=>seleccionadosCreditos.has(cr.id))
+        const algunoCrSel = creditosFiltrados.some(cr=>seleccionadosCreditos.has(cr.id))
+        const toggleCr = id => { const n=new Set(seleccionadosCreditos); n.has(id)?n.delete(id):n.add(id); setSeleccionadosCreditos(n) }
+        const toggleTodosCr = () => {
+          const n=new Set(seleccionadosCreditos)
+          if(todosCrSel) creditosFiltrados.forEach(cr=>n.delete(cr.id))
+          else creditosFiltrados.forEach(cr=>n.add(cr.id))
+          setSeleccionadosCreditos(n)
+        }
+        return (
         <>
-          <div style={fb}>
-            <div className="form-group" style={{minWidth:200}}>
-              <label>Cliente</label>
-              <select value={filtroCreditosCliente} onChange={e=>setFiltroCreditosCliente(e.target.value)}>
-                <option value="">Todos</option>
-                {clientes.map(c=><option key={c.id} value={c.id}>{c.nombre_razon_social}</option>)}
-              </select>
+          <div style={{...fb, justifyContent:'space-between'}}>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}}>
+              <div className="form-group" style={{minWidth:200}}>
+                <label>Cliente</label>
+                <select value={filtroCreditosCliente} onChange={e=>{setFiltroCreditosCliente(e.target.value);setSeleccionadosCreditos(new Set())}}>
+                  <option value="">Todos</option>
+                  {clientes.map(c=><option key={c.id} value={c.id}>{c.nombre_razon_social}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Desde</label>
+                <input type="date" value={filtroCreditosDesde} onChange={e=>setFiltroCreditosDesde(e.target.value)}/>
+              </div>
+              <div className="form-group">
+                <label>Hasta</label>
+                <input type="date" value={filtroCreditosHasta} onChange={e=>setFiltroCreditosHasta(e.target.value)}/>
+              </div>
+              {puedeRegistrar&&<button className="btn btn-purple" onClick={abrirCredito}>+ Registrar pago adelantado</button>}
             </div>
-            <div className="form-group">
-              <label>Desde</label>
-              <input type="date" value={filtroCreditosDesde} onChange={e=>setFiltroCreditosDesde(e.target.value)}/>
-            </div>
-            <div className="form-group">
-              <label>Hasta</label>
-              <input type="date" value={filtroCreditosHasta} onChange={e=>setFiltroCreditosHasta(e.target.value)}/>
-            </div>
+            {puedeEliminar&&(
+              <button className="btn btn-red" onClick={eliminarCreditosSeleccionados}
+                disabled={!algunoCrSel||procesando} style={{alignSelf:'flex-end',opacity:algunoCrSel?1:0.4}}>
+                🗑 Eliminar seleccionados{algunoCrSel?` (${creditosFiltrados.filter(cr=>seleccionadosCreditos.has(cr.id)).length})`:''}
+              </button>
+            )}
           </div>
-          {puedeRegistrar&&<div style={{marginBottom:14}}><button className="btn btn-purple" onClick={abrirCredito}>+ Registrar pago adelantado</button></div>}
           <div className="table-container"><div className="table-wrapper">
             <table>
-              <thead><tr><th>Cliente</th><th>Monto</th><th>Fecha pago</th><th>Período destino</th><th>Observación</th><th>Estado</th><th>Eliminar</th></tr></thead>
+              <thead><tr>
+                {puedeEliminar&&<th style={{width:36,textAlign:'center'}}><input type="checkbox" checked={todosCrSel} ref={el=>{if(el)el.indeterminate=algunoCrSel&&!todosCrSel}} onChange={toggleTodosCr} style={{cursor:'pointer'}}/></th>}
+                <th>Cliente</th><th>Monto</th><th>Fecha pago</th><th>Período destino</th><th>Observación</th><th>Estado</th>{puedeEliminar&&<th>Eliminar</th>}
+              </tr></thead>
               <tbody>
-                {creditos.filter(cr=>
-                  (!filtroCreditosCliente||cr.cliente_id===parseInt(filtroCreditosCliente))&&
-                  (!filtroCreditosDesde||cr.fecha_pago>=filtroCreditosDesde)&&
-                  (!filtroCreditosHasta||cr.fecha_pago<=filtroCreditosHasta)
-                ).length===0
-                  ?<tr><td colSpan={7} className="table-empty">Sin créditos.</td></tr>
-                  :creditos.filter(cr=>
-                    (!filtroCreditosCliente||cr.cliente_id===parseInt(filtroCreditosCliente))&&
-                    (!filtroCreditosDesde||cr.fecha_pago>=filtroCreditosDesde)&&
-                    (!filtroCreditosHasta||cr.fecha_pago<=filtroCreditosHasta)
-                  ).map(cr=>(
-                    <tr key={cr.id}>
+                {creditosFiltrados.length===0
+                  ?<tr><td colSpan={puedeEliminar?8:7} className="table-empty">Sin créditos.</td></tr>
+                  :creditosFiltrados.map(cr=>(
+                    <tr key={cr.id} style={{background:seleccionadosCreditos.has(cr.id)?'#eff6ff':''}}>
+                      {puedeEliminar&&<td style={{textAlign:'center'}}><input type="checkbox" checked={seleccionadosCreditos.has(cr.id)} onChange={()=>toggleCr(cr.id)} style={{cursor:'pointer'}}/></td>}
                       <td style={{fontWeight:600}}>{cr.clientes?.nombre_razon_social}</td>
                       <td>{gs(cr.monto)} Gs.</td>
                       <td>{new Date(cr.fecha_pago+'T00:00:00').toLocaleDateString('es-PY')}</td>
                       <td>{cr.aplicado?`Aplicado a ${periodoLabel(cr.cobros?.periodo||'')}`:cr.periodo_aplicar?periodoLabel(cr.periodo_aplicar):'Primer cobro pendiente'}</td>
                       <td>{cr.observacion||'-'}</td>
                       <td><span className={`badge badge-${cr.aplicado?'green':'orange'}`}>{cr.aplicado?'Aplicado':'Pendiente'}</span></td>
-                      <td>{puedeEliminar&&!cr.aplicado&&<button className="btn btn-red btn-sm" onClick={()=>eliminarCredito(cr.id)}>Eliminar</button>}</td>
+                      {puedeEliminar&&<td><button className="btn btn-red btn-sm" onClick={()=>eliminarCredito(cr.id)}>Eliminar</button></td>}
                     </tr>
                   ))
                 }
@@ -737,7 +818,7 @@ export default function Cobros({ user }) {
             </table>
           </div></div>
         </>
-      )}
+      )})()}
 
       {/* ── MODAL PAGO ── */}
       {modal==='pago'&&(
