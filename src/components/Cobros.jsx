@@ -10,95 +10,143 @@ const enLetras=n=>{const v=Math.round(Number(n)||0);return(v===0?'Cero':_w(v))+'
 
 function periodoActual(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
 
-// ── HTML Recibo (1 por período, con detalle de pagos) ─────────────────────────
+// ── Tabla movimiento de caja (usada en recibo y detalle) ─────────────────────
+function tablaCaja(totalCobro, fechaCobro, periodoStr, pagos) {
+  const th = s => `<th style="padding:3px 6px;font-size:10px;border:1px solid #ccc;background:#f0f0f0;text-align:${s||'left'}">`
+  const td = (s,extra='') => `<td style="padding:3px 6px;font-size:10px;border:1px solid #ccc;text-align:${s||'left'}${extra?';'+extra:''}">`
+  let saldo = totalCobro
+  const filas = []
+  // Fila inicial: el cobro como débito
+  filas.push(`<tr style="background:#fff8e1">
+    ${td()}${new Date(fechaCobro).toLocaleDateString('es-PY')}</td>
+    ${td()}Cobro — ${periodoStr}</td>
+    ${td('right','font-weight:700;color:#c00')}${gs(totalCobro)} Gs.</td>
+    ${td('right')}—</td>
+    ${td('right','font-weight:700;color:#c00')}${gs(saldo)} Gs.</td>
+  </tr>`)
+  // Una fila por cada pago
+  for (const p of pagos) {
+    const fecha = p.fecha_pago ? new Date(p.fecha_pago).toLocaleDateString('es-PY') : '-'
+    const medio = p.medio_pago === 'transferencia' ? 'Transf.' : 'Efectivo'
+    let concepto
+    if (p.tipo === 'credito_adelantado') concepto = `Crédito adelantado (${medio})`
+    else if (p.tipo === 'completo')      concepto = `Pago completo (${medio})`
+    else                                 concepto = `Pago parcial (${medio})`
+    saldo -= Number(p.monto)
+    const colorSaldo = saldo <= 0 ? '#056' : '#c00'
+    filas.push(`<tr>
+      ${td()}${fecha}</td>
+      ${td()}${concepto}</td>
+      ${td('right')}—</td>
+      ${td('right','font-weight:700;color:#056')}${gs(p.monto)} Gs.</td>
+      ${td('right','font-weight:700;color:'+colorSaldo)}${gs(Math.abs(saldo))} Gs.${saldo < 0 ? ' <span style="font-size:9px">(a favor)</span>' : ''}</td>
+    </tr>`)
+  }
+  return `
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        ${th()}Fecha</th>${th()}Concepto</th>
+        ${th('right')}Débito</th>${th('right')}Crédito</th>${th('right')}Saldo</th>
+      </tr></thead>
+      <tbody>${filas.join('')}</tbody>
+    </table>`
+}
+
+// ── HTML Recibo — 2 copias (ORIGINAL: CLIENTE / COPIA: CONTABILIDAD) ─────────
 function htmlRecibo(recibo, cliente, detalle, pagos=[]) {
-  const filas=(detalle||[]).filter(d=>d.cantidad>0).map(d=>
-    `<tr><td>${d.categorias?.nombre||''}</td><td style="text-align:center">${d.cantidad}</td><td style="text-align:right">${gs(d.precio_unitario||0)}</td><td style="text-align:right">${gs(d.subtotal||0)}</td></tr>`
+  const periodoStr = periodoLabel(recibo.periodo || '')
+  const filas = (detalle||[]).filter(d=>d.cantidad>0).map(d=>
+    `<tr>
+      <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc">${d.categorias?.nombre||''}</td>
+      <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:center">${d.cantidad}</td>
+      <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right">${gs(d.precio_unitario||0)} Gs.</td>
+      <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right">${gs(d.subtotal||0)} Gs.</td>
+    </tr>`
   ).join('')
 
-  const totalCobro = (detalle||[]).filter(d=>d.cantidad>0).reduce((s,d)=>s+Number(d.subtotal||0),0)
+  const totalCobro  = (detalle||[]).filter(d=>d.cantidad>0).reduce((s,d)=>s+Number(d.subtotal||0),0)
   const totalPagado = pagos.reduce((s,p)=>s+Number(p.monto),0)
-  const saldo = totalCobro - totalPagado
+  const saldo       = totalCobro - totalPagado
+  const fechaRecibo = recibo.fecha ? recibo.fecha+'T00:00:00' : new Date().toISOString()
 
-  const filasPagos = pagos.map(p=>{
-    const fecha = p.fecha_pago ? new Date(p.fecha_pago).toLocaleDateString('es-PY') : '-'
-    const medio = p.medio_pago==='transferencia'?'Transferencia bancaria':'Efectivo'
-    const tipo = p.tipo==='credito_adelantado'?'Pago adelantado':'Pago directo'
-    return `<tr><td>${fecha}</td><td>${tipo}</td><td>${medio}</td><td style="text-align:right;font-weight:700">${gs(p.monto)} Gs.</td></tr>`
-  }).join('')
+  const movCaja = pagos.length > 0
+    ? `<div style="margin-top:12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #bbb;padding-top:8px;margin-bottom:5px">Movimiento de cuenta</div>
+       ${tablaCaja(totalCobro, fechaRecibo, periodoStr, pagos)}
+       <div style="text-align:right;margin-top:5px;font-size:11px;font-weight:700;color:${saldo<=0?'#056':'#c00'}">
+         ${saldo<=0 ? '✓ CANCELADO TOTALMENTE' : `SALDO PENDIENTE: ${gs(saldo)} Gs.`}
+       </div>`
+    : ''
 
-  const seccionPagos = pagos.length>0 ? `
-    <div style="margin-top:10px;font-weight:700;font-size:11px;text-transform:uppercase;border-top:1px solid #ccc;padding-top:8px;margin-bottom:4px">Pagos aplicados</div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
-      <thead><tr style="background:#f0f0f0">
-        <th style="padding:3px 5px;font-size:10px;text-align:left;border:1px solid #ccc">Fecha</th>
-        <th style="padding:3px 5px;font-size:10px;text-align:left;border:1px solid #ccc">Tipo</th>
-        <th style="padding:3px 5px;font-size:10px;text-align:left;border:1px solid #ccc">Medio</th>
-        <th style="padding:3px 5px;font-size:10px;text-align:right;border:1px solid #ccc">Monto</th>
-      </tr></thead>
-      <tbody>${filasPagos}</tbody>
-    </table>
-    <div style="text-align:right;font-size:12px;font-weight:700">TOTAL PAGADO: ${gs(totalPagado)} Gs.</div>
-    ${saldo>0?`<div style="text-align:right;font-size:12px;color:#c00">SALDO PENDIENTE: ${gs(saldo)} Gs.</div>`:'<div style="text-align:right;font-size:12px;color:#060">CANCELADO TOTALMENTE</div>'}
-  ` : ''
-
-  const bloque=copia=>`<div class="recibo">
-    <div class="header">
-      <div class="empresa"><div class="nombre">QUERANDY S.A.</div><div>RUC: 80094734-7</div><div>Mcal. Estigarribia - Boquerón</div></div>
-      <div class="nro-box"><div class="nro-label">RECIBO N°</div><div class="nro">${String(recibo.numero||'').padStart(6,'0')}</div><div class="total-box">${gs(totalPagado)} Gs.</div></div>
+  const bloque = (copia, bgHeader) => `
+  <div class="recibo" style="background:${bgHeader==='copia'?'#fafafa':'#fff'}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+      <div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:2px">QUERANDY S.A.</div>
+        <div style="font-size:10px;color:#555">RUC: 80094734-7</div>
+        <div style="font-size:10px;color:#555">Mcal. Estigarribia - Boquerón</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase">RECIBO N°</div>
+        <div style="font-size:22px;font-weight:700">${String(recibo.numero||'').padStart(6,'0')}</div>
+        <div style="font-size:14px;font-weight:700;border:2px solid #000;padding:3px 8px;margin-top:3px">${gs(totalPagado)} Gs.</div>
+      </div>
     </div>
-    <div class="linea"></div>
-    <table class="datos">
-      <tr><td class="lbl">Fecha:</td><td>${new Date((recibo.fecha||'')+'T00:00:00').toLocaleDateString('es-PY')}</td></tr>
-      <tr><td class="lbl">Recibimos de:</td><td>${cliente}</td></tr>
-      <tr><td class="lbl">Importe en letras:</td><td>${enLetras(totalPagado)}</td></tr>
-      <tr><td class="lbl">Concepto:</td><td>Alquiler de Pastura - ${periodoLabel(recibo.periodo||'')}</td></tr>
+    <div style="border-top:1px solid #999;margin:6px 0"></div>
+    <table style="width:100%;margin-bottom:10px">
+      <tr><td style="font-weight:700;width:130px;padding:2px 3px;font-size:11px">Fecha:</td><td style="padding:2px 3px;font-size:11px">${new Date(fechaRecibo).toLocaleDateString('es-PY')}</td></tr>
+      <tr><td style="font-weight:700;padding:2px 3px;font-size:11px">Recibimos de:</td><td style="padding:2px 3px;font-size:11px;font-weight:700">${cliente}</td></tr>
+      <tr><td style="font-weight:700;padding:2px 3px;font-size:11px">Importe en letras:</td><td style="padding:2px 3px;font-size:11px">${enLetras(totalPagado)}</td></tr>
+      <tr><td style="font-weight:700;padding:2px 3px;font-size:11px">Concepto:</td><td style="padding:2px 3px;font-size:11px">Alquiler de Pastura — ${periodoStr}</td></tr>
     </table>
-    <table class="detalle">
-      <thead><tr><th>Categoría</th><th>Cant.</th><th>Precio</th><th>Total período</th></tr></thead>
-      <tbody>${filas}</tbody>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;margin-bottom:4px">Detalle de animales</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
+      <thead><tr>
+        <th style="padding:3px 5px;font-size:10px;border:1px solid #ccc;background:#f0f0f0;text-align:left">Categoría</th>
+        <th style="padding:3px 5px;font-size:10px;border:1px solid #ccc;background:#f0f0f0;text-align:center">Cant.</th>
+        <th style="padding:3px 5px;font-size:10px;border:1px solid #ccc;background:#f0f0f0;text-align:right">Precio</th>
+        <th style="padding:3px 5px;font-size:10px;border:1px solid #ccc;background:#f0f0f0;text-align:right">Total período</th>
+      </tr></thead>
+      <tbody>
+        ${filas}
+        <tr><td colspan="3" style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right;font-weight:700">TOTAL DEL PERÍODO:</td>
+            <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right;font-weight:700">${gs(totalCobro)} Gs.</td></tr>
+      </tbody>
     </table>
-    <div style="text-align:right;font-weight:700;font-size:12px;border-top:1px solid #000;padding-top:4px;margin-bottom:10px">TOTAL DEL PERÍODO: ${gs(totalCobro)} Gs.</div>
-    ${seccionPagos}
-    <div class="firma">Firma</div>
-    <div class="copia">${copia}</div>
+    ${movCaja}
+    <div style="text-align:right;border-top:1px solid #000;width:180px;margin-left:auto;padding-top:2px;font-size:10px;margin-top:18px">Firma</div>
+    <div style="text-align:right;font-size:9px;font-weight:700;margin-top:5px;color:#555;letter-spacing:1px">${copia}</div>
   </div>`
 
-  return`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Recibo ${periodoLabel(recibo.periodo||'')}</title><style>
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Recibo ${periodoStr}</title>
+  <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;font-size:12px;padding:10px}
-    .recibo{width:100%;max-width:680px;margin:0 auto 20px;border:1px solid #999;padding:14px}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
-    .empresa .nombre{font-size:16px;font-weight:700;margin-bottom:2px}
-    .nro-box{text-align:right;min-width:180px}
-    .nro-label{font-size:10px;font-weight:700;text-transform:uppercase}
-    .nro{font-size:22px;font-weight:700}
-    .total-box{font-size:15px;font-weight:700;border:2px solid #000;padding:4px 8px;margin-top:4px;text-align:center}
-    .linea{border-top:1px solid #999;margin:8px 0}
-    .datos{width:100%;margin-bottom:10px}
-    .datos td{padding:2px 4px;vertical-align:top}
-    .datos .lbl{font-weight:700;white-space:nowrap;width:140px}
-    .detalle{width:100%;border-collapse:collapse;margin-bottom:8px}
-    .detalle th,.detalle td{border:1px solid #ccc;padding:4px 6px;font-size:11px}
-    .detalle th{background:#f0f0f0;font-weight:700}
-    .firma{text-align:right;border-top:1px solid #000;width:200px;margin-left:auto;padding-top:2px;font-size:11px;margin-top:16px}
-    .copia{text-align:right;font-size:10px;font-weight:700;margin-top:6px;color:#555}
-    @media print{.recibo{page-break-inside:avoid}}
+    body{font-family:Arial,sans-serif;font-size:12px;background:#e5e5e5;padding:14px}
+    .recibo{width:100%;max-width:680px;margin:0 auto;border:1px solid #aaa;padding:14px;background:#fff}
+    .corte{width:100%;max-width:680px;margin:10px auto;border-top:2px dashed #aaa;display:flex;align-items:center;justify-content:center;padding:4px 0;font-size:10px;color:#aaa;letter-spacing:1px;gap:8px}
+    @media print{
+      body{background:#fff;padding:0}
+      .recibo{border:1px solid #999;page-break-after:always;max-width:100%;margin:0}
+      .recibo:last-child{page-break-after:auto}
+      .corte{display:none}
+    }
   </style></head><body>
-    ${bloque('ORIGINAL: CLIENTE')}
-    ${bloque('COPIA: CONTABILIDAD')}
+    ${bloque('ORIGINAL: CLIENTE', 'normal')}
+    <div class="corte">✂ ─ ─ ─ ─ ─ ─ ─ ─ ─ CORTE ─ ─ ─ ─ ─ ─ ─ ─ ─ ✂</div>
+    ${bloque('COPIA: CONTABILIDAD', 'copia')}
     <script>window.onload=()=>{window.print()}<\/script>
   </body></html>`
 }
 
 // ── HTML Detalle de cobro para imprimir ───────────────────────────────────────
 function htmlDetalle(cobro, clienteNombre, detalles, pagos = []) {
-  const periodoStr = periodoLabel(cobro.periodo || '')
-  const totalCobro = (detalles || []).filter(d => d.cantidad > 0).reduce((s, d) => s + Number(d.subtotal || 0), 0)
+  const periodoStr  = periodoLabel(cobro.periodo || '')
+  const totalCobro  = (detalles || []).filter(d => d.cantidad > 0).reduce((s, d) => s + Number(d.subtotal || 0), 0)
   const totalPagado = pagos.reduce((s, p) => s + Number(p.monto), 0)
-  const saldo = totalCobro - totalPagado
+  const saldo       = totalCobro - totalPagado
+  const fechaCobro  = cobro.fecha_generacion ? cobro.fecha_generacion + 'T00:00:00' : new Date().toISOString()
 
-  const filas = (detalles || []).filter(d => d.cantidad > 0).map(d =>
+  const filasDetalle = (detalles || []).filter(d => d.cantidad > 0).map(d =>
     `<tr>
       <td>${d.categorias?.nombre || ''}</td>
       <td style="text-align:center">${d.cantidad}</td>
@@ -107,27 +155,21 @@ function htmlDetalle(cobro, clienteNombre, detalles, pagos = []) {
     </tr>`
   ).join('')
 
-  const filasPagos = pagos.map(p => {
-    const fecha = p.fecha_pago ? new Date(p.fecha_pago).toLocaleDateString('es-PY') : '-'
-    const tipo = p.tipo === 'credito_adelantado' ? 'Pago adelantado' : p.tipo === 'completo' ? 'Pago completo' : 'Pago parcial'
-    const medio = p.medio_pago === 'transferencia' ? 'Transferencia bancaria' : 'Efectivo'
-    return `<tr><td>${fecha}</td><td>${tipo}</td><td>${medio}</td><td style="text-align:right;font-weight:700">${gs(p.monto)} Gs.</td></tr>`
-  }).join('')
-
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Detalle ${periodoStr}</title><style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;font-size:12px;padding:20px;max-width:700px;margin:0 auto}
+    body{font-family:Arial,sans-serif;font-size:12px;padding:20px;max-width:720px;margin:0 auto}
     .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;border-bottom:2px solid #000;padding-bottom:10px}
     .empresa .nombre{font-size:16px;font-weight:700;margin-bottom:2px}
+    .empresa div{font-size:11px;color:#333}
     .doc-info{text-align:right}
-    .doc-titulo{font-size:14px;font-weight:700;text-transform:uppercase}
+    .doc-titulo{font-size:14px;font-weight:700;text-transform:uppercase;margin-bottom:3px}
     table{width:100%;border-collapse:collapse;margin-bottom:10px}
     th,td{border:1px solid #ccc;padding:4px 6px;font-size:11px}
     th{background:#f0f0f0;font-weight:700;text-align:left}
     .datos td{border:none;padding:2px 4px;font-size:12px}
     .datos .lbl{font-weight:700;width:150px;white-space:nowrap}
     .total-row td{font-weight:700;background:#f5f5f5}
-    .seccion{font-weight:700;font-size:11px;text-transform:uppercase;margin:12px 0 6px;border-bottom:1px solid #bbb;padding-bottom:3px}
+    .seccion{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px;border-bottom:1px solid #ccc;padding-bottom:3px;color:#333}
     @media print{body{padding:10px}}
   </style></head><body>
     <div class="header">
@@ -138,45 +180,39 @@ function htmlDetalle(cobro, clienteNombre, detalles, pagos = []) {
       </div>
       <div class="doc-info">
         <div class="doc-titulo">Detalle de cobro</div>
-        <div>Fecha: ${new Date().toLocaleDateString('es-PY')}</div>
+        <div style="font-size:11px">Emisión: ${new Date().toLocaleDateString('es-PY')}</div>
       </div>
     </div>
     <table class="datos" style="margin-bottom:14px">
       <tr><td class="lbl">Cliente:</td><td><strong>${clienteNombre}</strong></td></tr>
       <tr><td class="lbl">Período:</td><td><strong>${periodoStr}</strong></td></tr>
     </table>
-    <div class="seccion">Animales en pastura — detalle</div>
+
+    <div class="seccion">Animales en pastura</div>
     <table>
       <thead><tr>
-        <th>Categoría</th><th style="text-align:center">Cantidad</th>
-        <th style="text-align:right">Precio unitario</th><th style="text-align:right">Subtotal</th>
+        <th>Categoría</th>
+        <th style="text-align:center">Cantidad</th>
+        <th style="text-align:right">Precio unitario</th>
+        <th style="text-align:right">Subtotal</th>
       </tr></thead>
       <tbody>
-        ${filas}
+        ${filasDetalle}
         <tr class="total-row">
           <td colspan="3" style="text-align:right">TOTAL DEL PERÍODO:</td>
           <td style="text-align:right">${gs(totalCobro)} Gs.</td>
         </tr>
       </tbody>
     </table>
-    ${pagos.length > 0 ? `
-      <div class="seccion">Pagos aplicados</div>
-      <table>
-        <thead><tr><th>Fecha</th><th>Tipo</th><th>Medio</th><th style="text-align:right">Monto</th></tr></thead>
-        <tbody>
-          ${filasPagos}
-          <tr class="total-row">
-            <td colspan="3" style="text-align:right">TOTAL PAGADO:</td>
-            <td style="text-align:right">${gs(totalPagado)} Gs.</td>
-          </tr>
-        </tbody>
-      </table>
-      <div style="text-align:right;margin-top:8px;font-size:13px;font-weight:700">
-        ${saldo <= 0
-          ? '<span style="color:green">✓ CANCELADO TOTALMENTE</span>'
-          : `<span style="color:#c00">SALDO PENDIENTE: ${gs(saldo)} Gs.</span>`}
-      </div>
-    ` : '<div style="color:#999;font-style:italic;margin-top:8px;font-size:11px">Sin pagos registrados aún.</div>'}
+
+    <div class="seccion">Movimiento de cuenta</div>
+    ${pagos.length > 0
+      ? tablaCaja(totalCobro, fechaCobro, periodoStr, pagos) +
+        `<div style="text-align:right;margin-top:8px;font-size:12px;font-weight:700;color:${saldo<=0?'#056':'#c00'}">
+          ${saldo<=0 ? '✓ CANCELADO TOTALMENTE' : `SALDO PENDIENTE: ${gs(saldo)} Gs.`}
+        </div>`
+      : `<div style="color:#999;font-style:italic;font-size:11px;padding:6px 0">Sin pagos registrados aún.</div>`
+    }
     <script>window.onload=()=>window.print()<\/script>
   </body></html>`
 }
