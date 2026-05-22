@@ -320,7 +320,7 @@ export default function Cobros({ user }) {
     const [{data:cb},{data:rc},{data:cr}] = await Promise.all([
       supabase.from('cobros').select('*, clientes(nombre_razon_social), pagos(id,monto,tipo,fecha_pago,medio_pago)').order('periodo').order('cliente_id'),
       supabase.from('recibos').select('*, clientes(nombre_razon_social), cobros(periodo)').order('created_at',{ascending:false}),
-      supabase.from('creditos_cliente').select('*, clientes(nombre_razon_social), cobros(periodo)').order('fecha_pago',{ascending:false}),
+      supabase.from('creditos_cliente').select('*, clientes(nombre_razon_social), cobros(periodo), pagos!pagos_credito_id_fkey(monto, cobros(periodo))').order('fecha_pago',{ascending:false}),
     ])
     setCobros(cb||[]); setRecibos(rc||[]); setCreditos(cr||[])
     setLoading(false)
@@ -474,7 +474,8 @@ export default function Cobros({ user }) {
         const {data:pago} = await supabase.from('pagos').insert({
           cobro_id:cobro.id, monto:aplicar, tipo:'credito_adelantado',
           medio_pago:'efectivo',
-          fecha_pago:cr.fecha_pago+'T00:00:00', usuario_id:cr.usuario_id
+          fecha_pago:cr.fecha_pago+'T00:00:00', usuario_id:cr.usuario_id,
+          credito_id: cr.id
         }).select().single()
         if (pago) {
           cr.restante -= aplicar
@@ -949,7 +950,43 @@ export default function Cobros({ user }) {
                       <td style={{fontWeight:600}}>{cr.clientes?.nombre_razon_social}</td>
                       <td>{gs(cr.monto)} Gs.</td>
                       <td>{new Date(cr.fecha_pago+'T00:00:00').toLocaleDateString('es-PY')}</td>
-                      <td>{cr.aplicado?`Aplicado a ${periodoLabel(cr.cobros?.periodo||'')}`:cr.periodo_aplicar?periodoLabel(cr.periodo_aplicar):'Primer cobro pendiente'}</td>
+                      <td>
+                        {cr.pagos?.length > 0 ? (
+                          // Desglose detallado: qué parte fue a cada período
+                          <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                            {cr.pagos
+                              .slice()
+                              .sort((a,b)=>(a.cobros?.periodo||'').localeCompare(b.cobros?.periodo||''))
+                              .map((p,i)=>(
+                                <div key={i} style={{display:'flex',alignItems:'center',gap:6}}>
+                                  <span style={{
+                                    background:'#dbeafe',color:'#1e40af',
+                                    borderRadius:4,padding:'1px 6px',fontSize:11,fontWeight:600,
+                                    whiteSpace:'nowrap'
+                                  }}>{periodoLabel(p.cobros?.periodo||'')}</span>
+                                  <span style={{fontSize:11,fontWeight:600,color:'var(--text-primary)'}}>
+                                    {gs(p.monto)} Gs.
+                                  </span>
+                                </div>
+                              ))
+                            }
+                          </div>
+                        ) : cr.aplicado ? (
+                          // Crédito viejo sin credito_id → muestra último cobro vinculado
+                          <span style={{fontSize:12,color:'var(--text-secondary)'}}>
+                            Aplicado a {periodoLabel(cr.cobros?.periodo||'')}
+                          </span>
+                        ) : cr.periodo_aplicar ? (
+                          // Pendiente con período destino definido
+                          <span style={{fontSize:12}}>
+                            Desde {periodoLabel(cr.periodo_aplicar)}
+                          </span>
+                        ) : (
+                          <span style={{fontSize:12,color:'var(--text-secondary)'}}>
+                            Primer cobro pendiente
+                          </span>
+                        )}
+                      </td>
                       <td>{cr.observacion||'-'}</td>
                       <td><span className={`badge badge-${cr.aplicado?'green':'orange'}`}>{cr.aplicado?'Aplicado':'Pendiente'}</span></td>
                       {puedeEliminar&&<td><button className="btn btn-red btn-sm" onClick={()=>eliminarCredito(cr.id)}>Eliminar</button></td>}
