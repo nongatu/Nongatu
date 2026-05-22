@@ -356,7 +356,7 @@ export default function Animales({ user }) {
             <div className="form-group" style={{ gridColumn: 'span 3', marginTop: -4 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
                 <input type="checkbox" checked={form.reclasMode}
-                  onChange={e => setForm({ ...form, reclasMode: e.target.checked, nueva_categoria_id: '', precio: '', fecha_ingreso: ''
+                  onChange={e => setForm({ ...form, reclasMode: e.target.checked, nueva_categoria_id: '', precio: '', fecha_ingreso: '' })}
                   style={{ width: 'auto', margin: 0 }} />
                 Habilitar reclasificación
               </label>
