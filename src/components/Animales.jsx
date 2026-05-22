@@ -21,7 +21,8 @@ export default function Animales({ user }) {
     fecha_ingreso: new Date().toISOString().split('T')[0],
     precio: '', observaciones: '',
     reclasMode: false, nueva_categoria_id: '',
-    graciaActiva: false, fecha_inicio_cobro: ''
+    graciaActiva: false, fecha_inicio_cobro: '',
+    cobrar_proporcional: false
   })
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -51,7 +52,8 @@ export default function Animales({ user }) {
       observaciones: a.observaciones || '',
       reclasMode: false, nueva_categoria_id: '',
       graciaActiva: !!a.fecha_inicio_cobro,
-      fecha_inicio_cobro: a.fecha_inicio_cobro || ''
+      fecha_inicio_cobro: a.fecha_inicio_cobro || '',
+      cobrar_proporcional: !!a.cobrar_proporcional
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -85,7 +87,8 @@ export default function Animales({ user }) {
       categoria_id: '', cantidad: '',
       fecha_ingreso: new Date().toISOString().split('T')[0],
       precio: '', observaciones: '', reclasMode: false, nueva_categoria_id: '',
-      graciaActiva: false, fecha_inicio_cobro: ''
+      graciaActiva: false, fecha_inicio_cobro: '',
+      cobrar_proporcional: false
     })
   }
 
@@ -105,6 +108,7 @@ export default function Animales({ user }) {
         precio: parseInt(form.precio) || 0,
         observaciones: form.observaciones,
         fecha_inicio_cobro: fechaInicioCobro,
+        cobrar_proporcional: form.cobrar_proporcional,
       }).eq('id', editando)
       setMsg({ type: 'success', text: 'Registro actualizado correctamente.' })
       setEditando(null)
@@ -117,6 +121,7 @@ export default function Animales({ user }) {
         precio: parseInt(form.precio) || 0,
         observaciones: form.observaciones,
         fecha_inicio_cobro: fechaInicioCobro,
+        cobrar_proporcional: form.cobrar_proporcional,
         estado: 'activo', usuario_id: user?.id,
         fecha_registro: new Date().toISOString(),
       })
@@ -391,6 +396,14 @@ export default function Animales({ user }) {
                     onChange={e => setForm({ ...form, graciaActiva: e.target.checked, fecha_inicio_cobro: '' })}
                     style={{ width: 'auto', margin: 0 }} />
                   Período de gracia (cobro diferido)
+                </label>
+              )}
+              {!form.reclasMode && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }} title="El primer mes se cobra proporcionalmente según los días en pastura (sin contar el día de llegada)">
+                  <input type="checkbox" checked={form.cobrar_proporcional}
+                    onChange={e => setForm({ ...form, cobrar_proporcional: e.target.checked })}
+                    style={{ width: 'auto', margin: 0 }} />
+                  Cobrar primer mes por días
                 </label>
               )}
             </div>

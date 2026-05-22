@@ -185,6 +185,7 @@ function calcularCobro(animalesCli, periodo, bajasCli) {
   const [year, month] = periodo.split('-').map(Number)
   const inicioPeriodo = new Date(year, month - 1, 1)
   const finPeriodo = new Date(year, month, 0)
+  const diasMes = finPeriodo.getDate()
 
   // Base: animales activos que ingresaron antes del fin del período
   const aptos = animalesCli.filter(a => {
@@ -197,11 +198,29 @@ function calcularCobro(animalesCli, periodo, bajasCli) {
     return true
   })
 
+  // Clave: categoria_id + precio_unitario (para separar proporcionales de completos)
   const detalles = {}
   aptos.forEach(a => {
     const cid = a.categoria_id
-    if (!detalles[cid]) detalles[cid] = { categoria_id: cid, nombre: a.categorias?.nombre||'', cantidad: 0, precio_unitario: Number(a.precio) }
-    detalles[cid].cantidad += a.cantidad
+    const precioBase = Number(a.precio)
+    let precioUnitario = precioBase
+
+    // Pro-rata: solo aplica en el mes de fecha_ingreso del animal
+    if (a.cobrar_proporcional) {
+      const mesIngreso = a.fecha_ingreso.substring(0, 7)  // "2025-11"
+      if (periodo === mesIngreso) {
+        const diaIngreso = new Date(a.fecha_ingreso+'T00:00:00').getDate()
+        // Días en pastura sin contar el día de llegada: diasMes - diaIngreso
+        const diasPastura = diasMes - diaIngreso
+        if (diasPastura > 0 && diasPastura < diasMes) {
+          precioUnitario = Math.round(precioBase * diasPastura / diasMes)
+        }
+      }
+    }
+
+    const key = `${cid}_${precioUnitario}`
+    if (!detalles[key]) detalles[key] = { categoria_id: cid, nombre: a.categorias?.nombre||'', cantidad: 0, precio_unitario: precioUnitario }
+    detalles[key].cantidad += a.cantidad
   })
 
   // Reconstrucción histórica: sumar bajas que ocurrieron durante o después de este período.
@@ -290,7 +309,7 @@ export default function Cobros({ user }) {
   useEffect(()=>{
     Promise.all([
       supabase.from('clientes').select('id,nombre_razon_social,ruc').order('nombre_razon_social'),
-      supabase.from('animales').select('id,cliente_id,categoria_id,cantidad,fecha_ingreso,precio,fecha_inicio_cobro,estado,categorias(nombre,cobrable)').in('estado',['activo','baja']),
+      supabase.from('animales').select('id,cliente_id,categoria_id,cantidad,fecha_ingreso,precio,fecha_inicio_cobro,cobrar_proporcional,estado,categorias(nombre,cobrable)').in('estado',['activo','baja']),
       supabase.from('movimientos').select('animal_id,cliente_id,tipo,categoria_anterior_id,cantidad,precio_nuevo,fecha').eq('tipo','baja'),
     ]).then(([{data:cl},{data:an},{data:mv}])=>{ setClientes(cl||[]); setAnimales(an||[]); setMovimientos(mv||[]) })
     cargar()
