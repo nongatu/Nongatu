@@ -86,29 +86,35 @@ export default function Animales({ user }) {
 }
 
   // ── Guardar animal normal ─────────────────────────────────────────────────
-  if (editando) {
-  await supabase.from('animales').update({
-    categoria_id: parseInt(form.categoria_id),
-    cantidad: parseInt(form.cantidad),
-    fecha_ingreso: form.fecha_ingreso,
-    precio: parseInt(form.precio) || 0,
-    observaciones: form.observaciones,
-  }).eq('id', editando)
-  setMsg({ type: 'success', text: 'Registro actualizado correctamente.' })
-  setEditando(null)
-} else {
-  await supabase.from('animales').insert({
-    cliente_id: parseInt(clienteSelec),
-    categoria_id: parseInt(form.categoria_id),
-    cantidad: parseInt(form.cantidad),
-    fecha_ingreso: form.fecha_ingreso,
-    precio: parseInt(form.precio) || 0,
-    observaciones: form.observaciones,
-    estado: 'activo', usuario_id: user?.id,
-    fecha_registro: new Date().toISOString(),
-  })
-  setMsg({ type: 'success', text: 'Animal registrado correctamente.' })
-}
+  const guardarNormal = async () => {
+    if (!clienteSelec) return setMsg({ type: 'error', text: 'Seleccioná un cliente.' })
+    if (!form.categoria_id || !form.cantidad || !form.fecha_ingreso)
+      return setMsg({ type: 'error', text: 'Completá los campos obligatorios.' })
+    if (editando) {
+      await supabase.from('animales').update({
+        categoria_id: parseInt(form.categoria_id),
+        cantidad: parseInt(form.cantidad),
+        fecha_ingreso: form.fecha_ingreso,
+        precio: parseInt(form.precio) || 0,
+        observaciones: form.observaciones,
+      }).eq('id', editando)
+      setMsg({ type: 'success', text: 'Registro actualizado correctamente.' })
+      setEditando(null)
+    } else {
+      await supabase.from('animales').insert({
+        cliente_id: parseInt(clienteSelec),
+        categoria_id: parseInt(form.categoria_id),
+        cantidad: parseInt(form.cantidad),
+        fecha_ingreso: form.fecha_ingreso,
+        precio: parseInt(form.precio) || 0,
+        observaciones: form.observaciones,
+        estado: 'activo', usuario_id: user?.id,
+        fecha_registro: new Date().toISOString(),
+      })
+      setMsg({ type: 'success', text: 'Animal registrado correctamente.' })
+    }
+    resetForm(); cargarAnimales()
+  }
 
   // ── Guardar reclasificación ───────────────────────────────────────────────
   const guardarReclasificacion = async () => {
