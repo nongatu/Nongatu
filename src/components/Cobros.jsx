@@ -364,7 +364,7 @@ export default function Cobros({ user }) {
     let nro = 1
     for (const cobro of cobrosData) {
       const totalPagado = cobro.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
-      if (totalPagado===0) continue
+      if (totalPagado===0 || totalPagado < Number(cobro.total)) continue
       const ultimoPago = cobro.pagos?.sort((a,b)=>new Date(a.fecha_pago)-new Date(b.fecha_pago)).slice(-1)[0]
       await supabase.from('recibos').insert({
         pago_id: ultimoPago?.id || null,
@@ -405,19 +405,24 @@ export default function Cobros({ user }) {
     if (pe) return setMsg({type:'error',text:'Error al registrar el pago.'})
     const nuevoEstado = montoNum>=saldo?'pagado':'parcial'
     await supabase.from('cobros').update({estado:nuevoEstado}).eq('id',cobro.id)
-    // Regenerar recibo consolidado para este cobro
-    const {data:det2} = await supabase.from('cobro_detalles').select('*,categorias(nombre)').eq('cobro_id',cobro.id)
-    const {data:pagosActuales} = await supabase.from('pagos').select('id,monto,tipo,fecha_pago,medio_pago').eq('cobro_id',cobro.id)
-    const totalPagado = pagosActuales?.reduce((s,p)=>s+Number(p.monto),0)||0
-    // Borrar recibo anterior del período
-    await supabase.from('recibos').delete().eq('cobro_id',cobro.id)
-    const {data:recActuales} = await supabase.from('recibos').select('id').order('id',{ascending:false}).limit(1)
-    const maxNro = recActuales?.[0]?.id||0
-    const nroR = String(maxNro+1).padStart(6,'0')
-    await supabase.from('recibos').insert({
-      pago_id:pago.id, cobro_id:cobro.id, numero:nroR,
-      fecha:fecha_pago, cliente_id:cobro.cliente_id, total:totalPagado, detalle:det2
-    })
+    // Solo generar recibo si el cobro quedó completamente pagado
+    if (nuevoEstado === 'pagado') {
+      const {data:det2} = await supabase.from('cobro_detalles').select('*,categorias(nombre)').eq('cobro_id',cobro.id)
+      const {data:pagosActuales} = await supabase.from('pagos').select('id,monto,tipo,fecha_pago,medio_pago').eq('cobro_id',cobro.id)
+      const totalPagado = pagosActuales?.reduce((s,p)=>s+Number(p.monto),0)||0
+      // Borrar recibo anterior del período (si existía)
+      await supabase.from('recibos').delete().eq('cobro_id',cobro.id)
+      const {data:recActuales} = await supabase.from('recibos').select('id').order('id',{ascending:false}).limit(1)
+      const maxNro = recActuales?.[0]?.id||0
+      const nroR = String(maxNro+1).padStart(6,'0')
+      await supabase.from('recibos').insert({
+        pago_id:pago.id, cobro_id:cobro.id, numero:nroR,
+        fecha:fecha_pago, cliente_id:cobro.cliente_id, total:totalPagado, detalle:det2
+      })
+    } else {
+      // Si quedó parcial, borrar cualquier recibo previo del cobro
+      await supabase.from('recibos').delete().eq('cobro_id',cobro.id)
+    }
     setModal(null); cargar()
   }
 
