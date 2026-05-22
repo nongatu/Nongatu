@@ -94,9 +94,16 @@ function htmlRecibo(recibo, cliente, detalle, pagos=[]) {
 function calcularCobro(animalesCli, periodo) {
   const [year, month] = periodo.split('-').map(Number)
   const finPeriodo = new Date(year, month, 0)
-  const aptos = animalesCli.filter(a =>
-    a.categorias?.cobrable && new Date(a.fecha_ingreso+'T00:00:00') <= finPeriodo
-  )
+  const aptos = animalesCli.filter(a => {
+    if (!a.categorias?.cobrable) return false
+    if (new Date(a.fecha_ingreso+'T00:00:00') > finPeriodo) return false
+    // Respetar período de gracia: si tiene fecha_inicio_cobro, no cobrar antes de ese período
+    if (a.fecha_inicio_cobro) {
+      const ficPeriodo = a.fecha_inicio_cobro.substring(0, 7) // YYYY-MM
+      if (periodo < ficPeriodo) return false
+    }
+    return true
+  })
   if (!aptos.length) return null
   const detalles = {}
   aptos.forEach(a => {
@@ -166,7 +173,7 @@ export default function Cobros({ user }) {
   useEffect(()=>{
     Promise.all([
       supabase.from('clientes').select('id,nombre_razon_social,ruc').order('nombre_razon_social'),
-      supabase.from('animales').select('id,cliente_id,categoria_id,cantidad,fecha_ingreso,precio,categorias(nombre,cobrable)').eq('estado','activo'),
+      supabase.from('animales').select('id,cliente_id,categoria_id,cantidad,fecha_ingreso,precio,fecha_inicio_cobro,categorias(nombre,cobrable)').eq('estado','activo'),
     ]).then(([{data:cl},{data:an}])=>{ setClientes(cl||[]); setAnimales(an||[]) })
     cargar()
   },[])

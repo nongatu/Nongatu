@@ -20,7 +20,8 @@ export default function Animales({ user }) {
     categoria_id: '', cantidad: '',
     fecha_ingreso: new Date().toISOString().split('T')[0],
     precio: '', observaciones: '',
-    reclasMode: false, nueva_categoria_id: ''
+    reclasMode: false, nueva_categoria_id: '',
+    graciaActiva: false, fecha_inicio_cobro: ''
   })
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -48,7 +49,9 @@ export default function Animales({ user }) {
       fecha_ingreso: a.fecha_ingreso,
       precio: String(a.precio),
       observaciones: a.observaciones || '',
-      reclasMode: false, nueva_categoria_id: ''
+      reclasMode: false, nueva_categoria_id: '',
+      graciaActiva: !!a.fecha_inicio_cobro,
+      fecha_inicio_cobro: a.fecha_inicio_cobro || ''
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -59,7 +62,7 @@ export default function Animales({ user }) {
     const { data } = await supabase.from('animales')
       .select('*, categorias(nombre,cobrable), usuarios(nombre_usuario)')
       .eq('cliente_id', clienteSelec).eq('estado', 'activo')
-      .order('fecha_ingreso').order('id', { ascending: false })
+      .order('fecha_ingreso', { ascending: true }).order('id', { ascending: true })
     setAnimales(data || [])
     setLoading(false)
   }, [clienteSelec])
@@ -77,19 +80,23 @@ export default function Animales({ user }) {
     .map(c => ({ value: c.id, label: c.nombre, searchText: c.nombre }))
 
   const resetForm = () => {
-  setEditando(null)
-  setForm({
-    categoria_id: '', cantidad: '',
-    fecha_ingreso: new Date().toISOString().split('T')[0],
-    precio: '', observaciones: '', reclasMode: false, nueva_categoria_id: ''
-  })
-}
+    setEditando(null)
+    setForm({
+      categoria_id: '', cantidad: '',
+      fecha_ingreso: new Date().toISOString().split('T')[0],
+      precio: '', observaciones: '', reclasMode: false, nueva_categoria_id: '',
+      graciaActiva: false, fecha_inicio_cobro: ''
+    })
+  }
 
   // ── Guardar animal normal ─────────────────────────────────────────────────
   const guardarNormal = async () => {
     if (!clienteSelec) return setMsg({ type: 'error', text: 'Seleccioná un cliente.' })
     if (!form.categoria_id || !form.cantidad || !form.fecha_ingreso)
       return setMsg({ type: 'error', text: 'Completá los campos obligatorios.' })
+    const fechaInicioCobro = form.graciaActiva && form.fecha_inicio_cobro
+      ? form.fecha_inicio_cobro + '-01'  // convertir YYYY-MM a YYYY-MM-01
+      : null
     if (editando) {
       await supabase.from('animales').update({
         categoria_id: parseInt(form.categoria_id),
@@ -97,6 +104,7 @@ export default function Animales({ user }) {
         fecha_ingreso: form.fecha_ingreso,
         precio: parseInt(form.precio) || 0,
         observaciones: form.observaciones,
+        fecha_inicio_cobro: fechaInicioCobro,
       }).eq('id', editando)
       setMsg({ type: 'success', text: 'Registro actualizado correctamente.' })
       setEditando(null)
@@ -108,6 +116,7 @@ export default function Animales({ user }) {
         fecha_ingreso: form.fecha_ingreso,
         precio: parseInt(form.precio) || 0,
         observaciones: form.observaciones,
+        fecha_inicio_cobro: fechaInicioCobro,
         estado: 'activo', usuario_id: user?.id,
         fecha_registro: new Date().toISOString(),
       })
@@ -123,10 +132,15 @@ export default function Animales({ user }) {
       return setMsg({ type: 'error', text: 'Completá todos los campos de reclasificación.' })
 
     const cant = parseInt(form.cantidad)
-    // Registros de la categoría origen, ordenados del más antiguo al más nuevo
+    // Registros de la categoría origen, ordenados del más antiguo al más nuevo (FIFO)
     const registros = animales
       .filter(a => a.categoria_id === parseInt(form.categoria_id))
-      .sort((a, b) => new Date(a.fecha_ingreso) - new Date(b.fecha_ingreso))
+      .sort((a, b) => {
+        const da = new Date(a.fecha_ingreso + 'T00:00:00')
+        const db = new Date(b.fecha_ingreso + 'T00:00:00')
+        if (da.getTime() !== db.getTime()) return da - db
+        return a.id - b.id  // desempate: ID menor = ingresado antes
+      })
     const totalDisp = registros.reduce((s, r) => s + r.cantidad, 0)
 
     if (cant > totalDisp)
@@ -238,7 +252,12 @@ export default function Animales({ user }) {
     const { categoria_id, cantidad } = modalForm
     if (!categoria_id || !cantidad) return
     const registros = animales.filter(a => a.categoria_id === parseInt(categoria_id))
-      .sort((a, b) => new Date(a.fecha_ingreso) - new Date(b.fecha_ingreso))
+      .sort((a, b) => {
+        const da = new Date(a.fecha_ingreso + 'T00:00:00')
+        const db = new Date(b.fecha_ingreso + 'T00:00:00')
+        if (da.getTime() !== db.getTime()) return da - db
+        return a.id - b.id  // desempate: ID menor = ingresado antes
+      })
     const totalDisp = registros.reduce((s, a) => s + a.cantidad, 0)
     if (parseInt(cantidad) > totalDisp) return alert(`Solo hay ${totalDisp} animales.`)
     let restante = parseInt(cantidad)
@@ -265,7 +284,12 @@ export default function Animales({ user }) {
     const { categoria_id, cantidad, causa, observacion } = modalForm
     if (!categoria_id || !cantidad || !causa) return
     const registros = animales.filter(a => a.categoria_id === parseInt(categoria_id))
-      .sort((a, b) => new Date(a.fecha_ingreso) - new Date(b.fecha_ingreso))
+      .sort((a, b) => {
+        const da = new Date(a.fecha_ingreso + 'T00:00:00')
+        const db = new Date(b.fecha_ingreso + 'T00:00:00')
+        if (da.getTime() !== db.getTime()) return da - db
+        return a.id - b.id  // desempate: ID menor = ingresado antes
+      })
     const totalDisp = registros.reduce((s, a) => s + a.cantidad, 0)
     if (parseInt(cantidad) > totalDisp) return alert(`Solo hay ${totalDisp} animales.`)
     let restante = parseInt(cantidad)
@@ -352,15 +376,47 @@ export default function Animales({ user }) {
                 onChange={e => setForm({ ...form, observaciones: e.target.value })} />
             </div>
 
-            {/* Checkbox reclasificación */}
-            <div className="form-group" style={{ gridColumn: 'span 3', marginTop: -4 }}>
+            {/* Checkboxes */}
+            <div className="form-group" style={{ gridColumn: 'span 3', marginTop: -4, display: 'flex', gap: 24, flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
                 <input type="checkbox" checked={form.reclasMode}
                   onChange={e => setForm({ ...form, reclasMode: e.target.checked, nueva_categoria_id: '', precio: '', fecha_ingreso: '' })}
                   style={{ width: 'auto', margin: 0 }} />
                 Habilitar reclasificación
               </label>
+              {!form.reclasMode && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.graciaActiva}
+                    onChange={e => setForm({ ...form, graciaActiva: e.target.checked, fecha_inicio_cobro: '' })}
+                    style={{ width: 'auto', margin: 0 }} />
+                  Período de gracia (cobro diferido)
+                </label>
+              )}
             </div>
+
+            {/* Panel período de gracia */}
+            {!form.reclasMode && form.graciaActiva && (
+              <div className="form-group" style={{ gridColumn: 'span 3' }}>
+                <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '14px 16px' }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#92400e', marginBottom: 10 }}>
+                    ⏳ Acuerdo de período de gracia
+                  </div>
+                  <div style={{ fontSize: 13, color: '#78350f', marginBottom: 12 }}>
+                    El animal se registra normalmente pero <strong>no se cobrará hasta el período indicado</strong>.
+                    Los meses anteriores quedarán sin cobro.
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>Cobrar a partir del período *</label>
+                    <input
+                      type="month"
+                      value={form.fecha_inicio_cobro}
+                      onChange={e => setForm({ ...form, fecha_inicio_cobro: e.target.value })}
+                      style={{ maxWidth: 200 }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Campos adicionales cuando está en modo reclasificación */}
             {form.reclasMode && (
@@ -419,7 +475,14 @@ export default function Animales({ user }) {
                   <td style={{ fontWeight: 700, textAlign: 'center' }}>{a.cantidad}</td>
                   <td>{a.fecha_ingreso ? new Date(a.fecha_ingreso + 'T00:00:00').toLocaleDateString('es-PY') : '-'}</td>
                   <td>{gs(a.precio)}</td>
-                  <td>{a.observaciones || '-'}</td>
+                  <td>
+                    {a.observaciones || '-'}
+                    {a.fecha_inicio_cobro && (
+                      <span style={{ marginLeft: 6, fontSize: 11, background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap' }}>
+                        ⏳ cobro desde {new Date(a.fecha_inicio_cobro + 'T00:00:00').toLocaleDateString('es-PY', { month: 'short', year: 'numeric' })}
+                      </span>
+                    )}
+                  </td>
                   <td>{diasDesde(a.fecha_ingreso)}</td>
                   <td><span className={`badge badge-${a.cobrado ? 'green' : 'red'}`}>{a.cobrado ? 'Sí' : 'No'}</span></td>
                   <td>{a.fecha_registro ? new Date(a.fecha_registro).toLocaleDateString('es-PY') : '-'}</td>
