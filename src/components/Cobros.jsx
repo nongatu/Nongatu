@@ -291,7 +291,7 @@ export default function Cobros({ user }) {
       const crs = creditosPorCliente[cobro.cliente_id]||[]
       for (const cr of crs) {
         if (cr.restante<=0) continue
-        if (cr.periodo_aplicar && cr.periodo_aplicar!==cobro.periodo) continue
+        if (cr.periodo_aplicar && cr.periodo_aplicar > cobro.periodo) continue
         const aplicar = Math.min(cr.restante, saldo)
         const {data:pago} = await supabase.from('pagos').insert({
           cobro_id:cobro.id, monto:aplicar, tipo:'credito_adelantado',
