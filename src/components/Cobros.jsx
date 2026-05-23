@@ -635,10 +635,13 @@ export default function Cobros({ user }) {
     setModal(null); cargar()
   }
 
-  // ── Asignación manual de crédito a un cobro específico ───────────────────
+  // ── Asignación/reasignación manual de crédito a un cobro específico ───────
   const abrirAsignarCredito = (cr) => {
-    const montoAplicado = (cr.pagos||[]).reduce((s,p)=>s+Number(p.monto),0)
-    const montoDisponible = Number(cr.monto) - montoAplicado
+    // Si el crédito ya está aplicado (pagos FK existentes), al reasignar
+    // primero se revierten → el monto completo queda disponible.
+    const montoAplicadoCr = (cr.pagos||[]).reduce((s,p)=>s+Number(p.monto),0)
+    const esReasignacion = cr.aplicado || montoAplicadoCr > 0
+    const montoDisponible = esReasignacion ? Number(cr.monto) : Number(cr.monto) - montoAplicadoCr
     const cobrosPendCli = cobros.filter(c=>
       c.cliente_id===cr.cliente_id &&
       (c.estado==='pendiente'||c.estado==='parcial')
@@ -649,6 +652,7 @@ export default function Cobros({ user }) {
       : 0
     setModalRedirigir({
       credito: cr,
+      es_reasignacion: esReasignacion,
       monto_disponible: montoDisponible,
       cobros_pendientes: cobrosPendCli,
       cobro_id: primerCobro?.id?.toString() || '',
@@ -657,40 +661,84 @@ export default function Cobros({ user }) {
   }
 
   const aplicarCreditoManual = async () => {
-    const {credito, cobro_id, monto_aplicar} = modalRedirigir
+    const {credito, cobro_id, monto_aplicar, es_reasignacion} = modalRedirigir
     if (!cobro_id || !monto_aplicar || Number(monto_aplicar) <= 0) return
     const montoNum = Number(monto_aplicar)
-    const cobroDestino = cobros.find(c=>c.id===parseInt(cobro_id))
-    if (!cobroDestino) return
+    setProcesando(true); setMsg(null)
+
+    // ── Paso 1: si es reasignación, revertir pagos existentes ────────────────
+    if (es_reasignacion) {
+      const {data:pagosExistentes} = await supabase.from('pagos').select('id,cobro_id').eq('credito_id', credito.id)
+      if (pagosExistentes?.length) {
+        const pids = pagosExistentes.map(p=>p.id)
+        await supabase.from('recibos').delete().in('pago_id', pids)
+        await supabase.from('pagos').delete().in('id', pids)
+        const cobroIds = [...new Set(pagosExistentes.map(p=>p.cobro_id).filter(Boolean))]
+        for (const cid of cobroIds) {
+          await supabase.from('recibos').delete().eq('cobro_id', cid)
+          const {data:cb} = await supabase.from('cobros').select('total,pagos(monto)').eq('id',cid).single()
+          if (cb) {
+            const pagado = cb.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
+            const estado = pagado<=0?'pendiente':pagado<Number(cb.total)?'parcial':'pagado'
+            await supabase.from('cobros').update({estado}).eq('id',cid)
+          }
+        }
+      }
+      // También revertir por cobro_id+tipo si no había credito_id (pre-migración)
+      else if (credito.cobro_id) {
+        const {data:pcOld} = await supabase.from('pagos').select('id,cobro_id').eq('cobro_id',credito.cobro_id).eq('tipo','credito_adelantado')
+        if (pcOld?.length) {
+          await supabase.from('recibos').delete().in('pago_id',pcOld.map(p=>p.id))
+          await supabase.from('pagos').delete().in('id',pcOld.map(p=>p.id))
+          await supabase.from('recibos').delete().eq('cobro_id',credito.cobro_id)
+          const {data:cb} = await supabase.from('cobros').select('total,pagos(monto)').eq('id',credito.cobro_id).single()
+          if (cb) {
+            const pagado = cb.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
+            const estado = pagado<=0?'pendiente':pagado<Number(cb.total)?'parcial':'pagado'
+            await supabase.from('cobros').update({estado}).eq('id',credito.cobro_id)
+          }
+        }
+      }
+      await supabase.from('creditos_cliente').update({aplicado:false,cobro_id:null}).eq('id',credito.id)
+    }
+
+    // ── Paso 2: obtener saldo actualizado del cobro destino ──────────────────
+    const {data:cobroFresh} = await supabase.from('cobros').select('*,pagos(monto)').eq('id',parseInt(cobro_id)).single()
+    const cobroDestino = cobroFresh || cobros.find(c=>c.id===parseInt(cobro_id))
+    if (!cobroDestino) { setProcesando(false); return }
     const pagadoCobro = cobroDestino.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
     const saldoCobro = Number(cobroDestino.total) - pagadoCobro
-    const yaAplicado = (credito.pagos||[]).reduce((s,p)=>s+Number(p.monto),0)
-    const disponible = Number(credito.monto) - yaAplicado
-    const aplicar = Math.min(montoNum, saldoCobro, disponible)
-    if (aplicar <= 0) return setMsg({type:'error',text:'No hay monto disponible para aplicar.'})
-    setProcesando(true); setMsg(null)
-    // Crear el pago
+
+    const aplicar = Math.min(montoNum, saldoCobro, Number(credito.monto))
+    if (aplicar <= 0) {
+      setMsg({type:'error',text:'El cobro seleccionado ya está completamente pagado.'})
+      setProcesando(false); return
+    }
+
+    // ── Paso 3: crear el pago ────────────────────────────────────────────────
     await supabase.from('pagos').insert({
       cobro_id: parseInt(cobro_id),
       monto: aplicar,
       tipo: 'credito_adelantado',
-      medio_pago: credito.medio_pago || 'transferencia',
+      medio_pago: credito.medio_pago || 'efectivo',
       fecha_pago: credito.fecha_pago + 'T00:00:00',
       usuario_id: user?.id,
       credito_id: credito.id
     })
-    // Actualizar estado del cobro
+
+    // ── Paso 4: actualizar estado del cobro ──────────────────────────────────
     const nuevoSaldo = saldoCobro - aplicar
     const nuevoEstado = nuevoSaldo <= 0 ? 'pagado' : 'parcial'
     await supabase.from('cobros').update({estado: nuevoEstado}).eq('id', parseInt(cobro_id))
-    // Marcar crédito como aplicado si el monto fue completamente usado
-    const totalAplicado = yaAplicado + aplicar
-    if (totalAplicado >= Number(credito.monto)) {
+
+    // ── Paso 5: marcar crédito como aplicado si el monto fue completamente usado
+    if (aplicar >= Number(credito.monto)) {
       await supabase.from('creditos_cliente').update({
         aplicado: true, cobro_id: parseInt(cobro_id)
       }).eq('id', credito.id)
     }
-    // Generar recibo si el cobro quedó totalmente pagado
+
+    // ── Paso 6: generar recibo si cobro quedó pagado ─────────────────────────
     if (nuevoEstado === 'pagado') {
       const {data:det} = await supabase.from('cobro_detalles').select('*,categorias(nombre)').eq('cobro_id',parseInt(cobro_id))
       const {data:pagosActuales} = await supabase.from('pagos').select('id,monto,tipo,fecha_pago,medio_pago').eq('cobro_id',parseInt(cobro_id))
@@ -708,8 +756,10 @@ export default function Cobros({ user }) {
         total: totalPagado, detalle: det
       })
     }
+
     setModalRedirigir(null)
-    setMsg({type:'success', text:`${gs(aplicar)} Gs. aplicados al cobro de ${periodoLabel(cobroDestino.periodo)}.`})
+    const accion = es_reasignacion ? 'Reasignado' : 'Aplicado'
+    setMsg({type:'success', text:`${accion}: ${gs(aplicar)} Gs. al cobro de ${periodoLabel(cobroDestino.periodo)}.`})
     await cargar(); setProcesando(false)
   }
 
@@ -1173,11 +1223,9 @@ export default function Cobros({ user }) {
                       </td>
                       {puedeRegistrar&&(
                         <td>
-                          {montoDisponibleCr > 0 && (
-                            <button className="btn btn-purple btn-sm" onClick={()=>abrirAsignarCredito(cr)}>
-                              Asignar{montoAplicadoCr>0?` (${gs(montoDisponibleCr)} Gs.)`:''}
-                            </button>
-                          )}
+                          <button className="btn btn-purple btn-sm" onClick={()=>abrirAsignarCredito(cr)}>
+                            {cr.aplicado||montoAplicadoCr>0 ? 'Reasignar' : 'Asignar'}
+                          </button>
                         </td>
                       )}
                       {puedeEliminar&&<td><button className="btn btn-red btn-sm" onClick={()=>eliminarCredito(cr.id)}>Eliminar</button></td>}
@@ -1278,7 +1326,12 @@ export default function Cobros({ user }) {
       {/* ── MODAL ASIGNACIÓN MANUAL DE CRÉDITO ── */}
       {modalRedirigir&&(
         <div className="modal-overlay"><div className="modal">
-          <h3>Asignar crédito a cobro</h3>
+          <h3>{modalRedirigir.es_reasignacion ? 'Reasignar crédito' : 'Asignar crédito a cobro'}</h3>
+          {modalRedirigir.es_reasignacion&&(
+            <div style={{background:'#fff7ed',border:'1px solid #fdba74',borderRadius:6,padding:'8px 12px',marginBottom:12,fontSize:12,color:'#92400e'}}>
+              ⚠ Se revertirán los pagos anteriores de este crédito y se aplicará al nuevo cobro seleccionado.
+            </div>
+          )}
           <div style={{background:'#f5f3ff',border:'1px solid #c4b5fd',borderRadius:8,padding:'10px 14px',marginBottom:16}}>
             <div style={{fontSize:13,fontWeight:600,color:'#5b21b6'}}>{modalRedirigir.credito.clientes?.nombre_razon_social}</div>
             <div style={{fontSize:13,marginTop:2}}>
