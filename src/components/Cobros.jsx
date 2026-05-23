@@ -346,6 +346,7 @@ export default function Cobros({ user }) {
   const [seleccionadosRecibos, setSeleccionadosRecibos] = useState(new Set())
   const [seleccionadosCreditos, setSeleccionadosCreditos] = useState(new Set())
   const [movimientos, setMovimientos] = useState([])
+  const [modalRedirigir, setModalRedirigir] = useState(null)
 
   const perms = user?.rol==='Administrador'?{todo:true}:(user?.permisos||{})
   const puedeGenerar = perms.todo||perms.generar_cobros
@@ -500,9 +501,13 @@ export default function Cobros({ user }) {
   }
 
   // ── FIFO: solo crea pagos, NO crea recibos ────────────────────────────────
+  // Créditos de transferencia bancaria NO se aplican automáticamente — requieren asignación manual
   const aplicarCreditosFIFO = async () => {
     const {data:cobrosActuales} = await supabase.from('cobros').select('*, pagos(monto)').order('periodo').order('cliente_id')
-    const {data:creditosActuales} = await supabase.from('creditos_cliente').select('*').eq('aplicado',false).order('fecha_pago')
+    const {data:creditosActuales} = await supabase.from('creditos_cliente').select('*')
+      .eq('aplicado',false)
+      .neq('medio_pago','transferencia')
+      .order('fecha_pago')
     const creditosPorCliente = {}
     ;(creditosActuales||[]).forEach(cr => {
       if (!creditosPorCliente[cr.cliente_id]) creditosPorCliente[cr.cliente_id] = []
@@ -612,21 +617,100 @@ export default function Cobros({ user }) {
   }
 
   const abrirCredito = () => {
-    setModalForm({cliente_id:'',monto:'',fecha_pago:new Date().toISOString().split('T')[0],periodo_aplicar:'',observacion:''})
+    setModalForm({cliente_id:'',monto:'',fecha_pago:new Date().toISOString().split('T')[0],periodo_aplicar:'',observacion:'',medio_pago:'efectivo'})
     setModal('credito')
   }
 
   const registrarCredito = async () => {
-    const {cliente_id,monto,fecha_pago,periodo_aplicar,observacion} = modalForm
+    const {cliente_id,monto,fecha_pago,periodo_aplicar,observacion,medio_pago} = modalForm
     if (!cliente_id||!monto||!fecha_pago) return setMsg({type:'error',text:'Completá cliente, monto y fecha.'})
     const {error} = await supabase.from('creditos_cliente').insert({
       cliente_id:parseInt(cliente_id), monto:parseInt(monto),
       fecha_pago, periodo_aplicar:periodo_aplicar||null,
-      observacion, aplicado:false, usuario_id:user?.id
+      observacion, aplicado:false, usuario_id:user?.id,
+      medio_pago: medio_pago || 'efectivo'
     })
     if (error) return setMsg({type:'error',text:`Error: ${error.message}`})
-    setMsg({type:'success',text:'Pago adelantado registrado.'})
+    setMsg({type:'success',text:`Pago adelantado registrado${medio_pago==='transferencia'?' (transferencia — asignación manual requerida)':''}.`})
     setModal(null); cargar()
+  }
+
+  // ── Asignación manual de crédito a un cobro específico ───────────────────
+  const abrirAsignarCredito = (cr) => {
+    const montoAplicado = (cr.pagos||[]).reduce((s,p)=>s+Number(p.monto),0)
+    const montoDisponible = Number(cr.monto) - montoAplicado
+    const cobrosPendCli = cobros.filter(c=>
+      c.cliente_id===cr.cliente_id &&
+      (c.estado==='pendiente'||c.estado==='parcial')
+    ).sort((a,b)=>a.periodo.localeCompare(b.periodo))
+    const primerCobro = cobrosPendCli[0]
+    const saldoPrimero = primerCobro
+      ? Number(primerCobro.total)-(primerCobro.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0)
+      : 0
+    setModalRedirigir({
+      credito: cr,
+      monto_disponible: montoDisponible,
+      cobros_pendientes: cobrosPendCli,
+      cobro_id: primerCobro?.id?.toString() || '',
+      monto_aplicar: primerCobro ? String(Math.min(montoDisponible, saldoPrimero)) : ''
+    })
+  }
+
+  const aplicarCreditoManual = async () => {
+    const {credito, cobro_id, monto_aplicar} = modalRedirigir
+    if (!cobro_id || !monto_aplicar || Number(monto_aplicar) <= 0) return
+    const montoNum = Number(monto_aplicar)
+    const cobroDestino = cobros.find(c=>c.id===parseInt(cobro_id))
+    if (!cobroDestino) return
+    const pagadoCobro = cobroDestino.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
+    const saldoCobro = Number(cobroDestino.total) - pagadoCobro
+    const yaAplicado = (credito.pagos||[]).reduce((s,p)=>s+Number(p.monto),0)
+    const disponible = Number(credito.monto) - yaAplicado
+    const aplicar = Math.min(montoNum, saldoCobro, disponible)
+    if (aplicar <= 0) return setMsg({type:'error',text:'No hay monto disponible para aplicar.'})
+    setProcesando(true); setMsg(null)
+    // Crear el pago
+    await supabase.from('pagos').insert({
+      cobro_id: parseInt(cobro_id),
+      monto: aplicar,
+      tipo: 'credito_adelantado',
+      medio_pago: credito.medio_pago || 'transferencia',
+      fecha_pago: credito.fecha_pago + 'T00:00:00',
+      usuario_id: user?.id,
+      credito_id: credito.id
+    })
+    // Actualizar estado del cobro
+    const nuevoSaldo = saldoCobro - aplicar
+    const nuevoEstado = nuevoSaldo <= 0 ? 'pagado' : 'parcial'
+    await supabase.from('cobros').update({estado: nuevoEstado}).eq('id', parseInt(cobro_id))
+    // Marcar crédito como aplicado si el monto fue completamente usado
+    const totalAplicado = yaAplicado + aplicar
+    if (totalAplicado >= Number(credito.monto)) {
+      await supabase.from('creditos_cliente').update({
+        aplicado: true, cobro_id: parseInt(cobro_id)
+      }).eq('id', credito.id)
+    }
+    // Generar recibo si el cobro quedó totalmente pagado
+    if (nuevoEstado === 'pagado') {
+      const {data:det} = await supabase.from('cobro_detalles').select('*,categorias(nombre)').eq('cobro_id',parseInt(cobro_id))
+      const {data:pagosActuales} = await supabase.from('pagos').select('id,monto,tipo,fecha_pago,medio_pago').eq('cobro_id',parseInt(cobro_id))
+      const totalPagado = pagosActuales?.reduce((s,p)=>s+Number(p.monto),0)||0
+      await supabase.from('recibos').delete().eq('cobro_id',parseInt(cobro_id))
+      const {data:recActuales} = await supabase.from('recibos').select('id').order('id',{ascending:false}).limit(1)
+      const maxNro = recActuales?.[0]?.id||0
+      const ultimoPagoData = pagosActuales?.slice(-1)[0]
+      await supabase.from('recibos').insert({
+        pago_id: ultimoPagoData?.id||null,
+        cobro_id: parseInt(cobro_id),
+        numero: String(maxNro+1).padStart(6,'0'),
+        fecha: credito.fecha_pago,
+        cliente_id: credito.cliente_id,
+        total: totalPagado, detalle: det
+      })
+    }
+    setModalRedirigir(null)
+    setMsg({type:'success', text:`${gs(aplicar)} Gs. aplicados al cobro de ${periodoLabel(cobroDestino.periodo)}.`})
+    await cargar(); setProcesando(false)
   }
 
   const eliminarCobro = async id => {
@@ -677,23 +761,32 @@ export default function Cobros({ user }) {
   const eliminarCredito = async id => {
     const cr = creditos.find(c=>c.id===id)
     const aviso = cr?.aplicado
-      ? '¿Eliminar este pago adelantado? Al estar aplicado se revertirá el pago del período correspondiente y el cobro quedará pendiente.'
+      ? '¿Eliminar este pago adelantado? Al estar aplicado se revertirá el pago de todos los cobros afectados.'
       : '¿Eliminar este pago adelantado?'
     if (!confirm(aviso)) return
-    if (cr?.aplicado && cr.cobro_id) {
-      // Eliminar el pago tipo crédito asociado a ese cobro
-      const {data:pc} = await supabase.from('pagos').select('id').eq('cobro_id',cr.cobro_id).eq('tipo','credito_adelantado')
-      if (pc?.length) {
-        await supabase.from('recibos').delete().in('pago_id',pc.map(p=>p.id))
-        await supabase.from('pagos').delete().in('id',pc.map(p=>p.id))
-      }
-      await supabase.from('recibos').delete().eq('cobro_id',cr.cobro_id)
-      // Recalcular estado del cobro
-      const {data:cb} = await supabase.from('cobros').select('total,pagos(monto)').eq('id',cr.cobro_id).single()
-      if (cb) {
-        const pagado = cb.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
-        const estado = pagado<=0?'pendiente':pagado<Number(cb.total)?'parcial':'pagado'
-        await supabase.from('cobros').update({estado}).eq('id',cr.cobro_id)
+    // Buscar todos los pagos vinculados a este crédito (por credito_id FK, o fallback por cobro_id+tipo)
+    let pcData = []
+    const {data:pcByCredito} = await supabase.from('pagos').select('id,cobro_id').eq('credito_id',id)
+    if (pcByCredito?.length) {
+      pcData = pcByCredito
+    } else if (cr?.cobro_id) {
+      const {data:pcByCobro} = await supabase.from('pagos').select('id,cobro_id').eq('cobro_id',cr.cobro_id).eq('tipo','credito_adelantado')
+      pcData = pcByCobro || []
+    }
+    if (pcData.length) {
+      const pids = pcData.map(p=>p.id)
+      await supabase.from('recibos').delete().in('pago_id',pids)
+      await supabase.from('pagos').delete().in('id',pids)
+      // Recalcular estado de todos los cobros afectados
+      const cobroIds = [...new Set(pcData.map(p=>p.cobro_id).filter(Boolean))]
+      for (const cobroId of cobroIds) {
+        await supabase.from('recibos').delete().eq('cobro_id',cobroId)
+        const {data:cb} = await supabase.from('cobros').select('total,pagos(monto)').eq('id',cobroId).single()
+        if (cb) {
+          const pagado = cb.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
+          const estado = pagado<=0?'pendiente':pagado<Number(cb.total)?'parcial':'pagado'
+          await supabase.from('cobros').update({estado}).eq('id',cobroId)
+        }
       }
     }
     await supabase.from('creditos_cliente').delete().eq('id',id)
@@ -1016,16 +1109,30 @@ export default function Cobros({ user }) {
             <table>
               <thead><tr>
                 {puedeEliminar&&<th style={{width:36,textAlign:'center'}}><input type="checkbox" checked={todosCrSel} ref={el=>{if(el)el.indeterminate=algunoCrSel&&!todosCrSel}} onChange={toggleTodosCr} style={{cursor:'pointer'}}/></th>}
-                <th>Cliente</th><th>Monto</th><th>Fecha pago</th><th>Período destino</th><th>Observación</th><th>Estado</th>{puedeEliminar&&<th>Eliminar</th>}
+                <th>Cliente</th><th>Monto</th><th>Tipo</th><th>Fecha pago</th><th>Período destino</th><th>Observación</th><th>Estado</th>{puedeRegistrar&&<th>Asignar</th>}{puedeEliminar&&<th>Eliminar</th>}
               </tr></thead>
               <tbody>
                 {creditosFiltrados.length===0
-                  ?<tr><td colSpan={puedeEliminar?8:7} className="table-empty">Sin créditos.</td></tr>
-                  :creditosFiltrados.map(cr=>(
-                    <tr key={cr.id} style={{background:seleccionadosCreditos.has(cr.id)?'#eff6ff':''}}>
+                  ?<tr><td colSpan={(puedeEliminar?1:0)+(puedeRegistrar?1:0)+8} className="table-empty">Sin créditos.</td></tr>
+                  :creditosFiltrados.map(cr=>{
+                    const montoAplicadoCr = (cr.pagos||[]).reduce((s,p)=>s+Number(p.monto),0)
+                    const montoDisponibleCr = Number(cr.monto) - montoAplicadoCr
+                    const esTransferencia = (cr.medio_pago||'efectivo') === 'transferencia'
+                    return (
+                    <tr key={cr.id} style={{background:seleccionadosCreditos.has(cr.id)?'#eff6ff':esTransferencia?'#faf5ff':''}}>
                       {puedeEliminar&&<td style={{textAlign:'center'}}><input type="checkbox" checked={seleccionadosCreditos.has(cr.id)} onChange={()=>toggleCr(cr.id)} style={{cursor:'pointer'}}/></td>}
                       <td style={{fontWeight:600}}>{cr.clientes?.nombre_razon_social}</td>
-                      <td>{gs(cr.monto)} Gs.</td>
+                      <td>
+                        <div style={{fontWeight:600}}>{gs(cr.monto)} Gs.</div>
+                        {montoDisponibleCr > 0 && montoAplicadoCr > 0 && (
+                          <div style={{fontSize:11,color:'var(--orange)'}}>Disponible: {gs(montoDisponibleCr)} Gs.</div>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge badge-${esTransferencia?'blue':'green'}`} style={{fontSize:11}}>
+                          {esTransferencia?'Transferencia':'Efectivo'}
+                        </span>
+                      </td>
                       <td>{new Date(cr.fecha_pago+'T00:00:00').toLocaleDateString('es-PY')}</td>
                       <td>
                         {(() => {
@@ -1050,17 +1157,32 @@ export default function Cobros({ user }) {
                           } else if (!cr.aplicado && cr.periodo_aplicar) {
                             return <span style={{fontSize:12}}>Desde {periodoLabel(cr.periodo_aplicar)}</span>
                           } else if (!cr.aplicado) {
-                            return <span style={{fontSize:12,color:'var(--text-secondary)'}}>Primer cobro pendiente</span>
+                            return <span style={{fontSize:12,color:'var(--text-secondary)'}}>
+                              {esTransferencia ? '— asignación manual —' : 'Primer cobro pendiente'}
+                            </span>
                           } else {
                             return <span style={{fontSize:12,color:'var(--text-secondary)'}}>Sin datos de período</span>
                           }
                         })()}
                       </td>
                       <td>{cr.observacion||'-'}</td>
-                      <td><span className={`badge badge-${cr.aplicado?'green':'orange'}`}>{cr.aplicado?'Aplicado':'Pendiente'}</span></td>
+                      <td>
+                        <span className={`badge badge-${cr.aplicado&&montoDisponibleCr===0?'green':'orange'}`}>
+                          {cr.aplicado&&montoDisponibleCr===0?'Aplicado':'Pendiente'}
+                        </span>
+                      </td>
+                      {puedeRegistrar&&(
+                        <td>
+                          {montoDisponibleCr > 0 && (
+                            <button className="btn btn-purple btn-sm" onClick={()=>abrirAsignarCredito(cr)}>
+                              Asignar{montoAplicadoCr>0?` (${gs(montoDisponibleCr)} Gs.)`:''}
+                            </button>
+                          )}
+                        </td>
+                      )}
                       {puedeEliminar&&<td><button className="btn btn-red btn-sm" onClick={()=>eliminarCredito(cr.id)}>Eliminar</button></td>}
                     </tr>
-                  ))
+                  )})
                 }
               </tbody>
             </table>
@@ -1108,7 +1230,11 @@ export default function Cobros({ user }) {
       {modal==='credito'&&(
         <div className="modal-overlay"><div className="modal">
           <h3>Registrar pago adelantado</h3>
-          <p style={{marginBottom:16,fontSize:13,color:'var(--text-secondary)'}}>Se registra como crédito a favor del cliente. Se aplica al cobro del período indicado o al primer cobro pendiente.</p>
+          <p style={{marginBottom:16,fontSize:13,color:'var(--text-secondary)'}}>
+            {(modalForm.medio_pago||'efectivo')==='transferencia'
+              ? 'Transferencia bancaria: quedará pendiente hasta que lo asignés manualmente a un cobro específico.'
+              : 'Efectivo: se aplicará automáticamente al cobro del período indicado o al primer cobro pendiente.'}
+          </p>
           <div className="form-group" style={{marginBottom:14}}>
             <label>Cliente *</label>
             <select value={modalForm.cliente_id} onChange={e=>setModalForm({...modalForm,cliente_id:e.target.value})}>
@@ -1125,9 +1251,19 @@ export default function Cobros({ user }) {
             <input type="date" value={modalForm.fecha_pago} onChange={e=>setModalForm({...modalForm,fecha_pago:e.target.value})}/>
           </div>
           <div className="form-group" style={{marginBottom:14}}>
-            <label>Período destino (opcional)</label>
-            <input type="month" value={modalForm.periodo_aplicar} onChange={e=>setModalForm({...modalForm,periodo_aplicar:e.target.value})}/>
+            <label>Medio de pago *</label>
+            <select value={modalForm.medio_pago||'efectivo'} onChange={e=>setModalForm({...modalForm,medio_pago:e.target.value,periodo_aplicar:e.target.value==='transferencia'?'':modalForm.periodo_aplicar})}>
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia bancaria</option>
+            </select>
           </div>
+          {(modalForm.medio_pago||'efectivo')==='efectivo'&&(
+            <div className="form-group" style={{marginBottom:14}}>
+              <label>Período destino (opcional)</label>
+              <input type="month" value={modalForm.periodo_aplicar} onChange={e=>setModalForm({...modalForm,periodo_aplicar:e.target.value})}/>
+              <div style={{fontSize:11,color:'var(--text-secondary)',marginTop:3}}>Si no se indica, se aplica al primer cobro pendiente del cliente.</div>
+            </div>
+          )}
           <div className="form-group" style={{marginBottom:20}}>
             <label>Observación</label>
             <input value={modalForm.observacion} onChange={e=>setModalForm({...modalForm,observacion:e.target.value})} placeholder="Ej: pago adelantado octubre 2025"/>
@@ -1135,6 +1271,70 @@ export default function Cobros({ user }) {
           <div className="modal-footer">
             <button className="btn btn-outline" onClick={()=>setModal(null)}>Cancelar</button>
             <button className="btn btn-purple" onClick={registrarCredito}>Guardar crédito</button>
+          </div>
+        </div></div>
+      )}
+
+      {/* ── MODAL ASIGNACIÓN MANUAL DE CRÉDITO ── */}
+      {modalRedirigir&&(
+        <div className="modal-overlay"><div className="modal">
+          <h3>Asignar crédito a cobro</h3>
+          <div style={{background:'#f5f3ff',border:'1px solid #c4b5fd',borderRadius:8,padding:'10px 14px',marginBottom:16}}>
+            <div style={{fontSize:13,fontWeight:600,color:'#5b21b6'}}>{modalRedirigir.credito.clientes?.nombre_razon_social}</div>
+            <div style={{fontSize:13,marginTop:2}}>
+              Monto total: <strong>{gs(modalRedirigir.credito.monto)} Gs.</strong>
+              {' · '}
+              <span style={{color:'var(--purple)',fontWeight:600}}>Disponible: {gs(modalRedirigir.monto_disponible)} Gs.</span>
+            </div>
+            <div style={{fontSize:12,color:'#6b7280',marginTop:2}}>
+              {(modalRedirigir.credito.medio_pago||'efectivo')==='transferencia'?'Transferencia bancaria':'Efectivo'}
+              {' · '}{new Date(modalRedirigir.credito.fecha_pago+'T00:00:00').toLocaleDateString('es-PY')}
+            </div>
+          </div>
+          {modalRedirigir.cobros_pendientes.length===0 ? (
+            <div style={{padding:'18px 0',textAlign:'center',color:'var(--text-secondary)',fontSize:14}}>
+              No hay cobros pendientes para este cliente.
+            </div>
+          ) : (
+            <>
+              <div className="form-group" style={{marginBottom:14}}>
+                <label>Cobro destino *</label>
+                <select value={modalRedirigir.cobro_id} onChange={e=>{
+                  const cid = parseInt(e.target.value)
+                  const cobro = modalRedirigir.cobros_pendientes.find(c=>c.id===cid)
+                  if (!cobro) return
+                  const pag = cobro.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
+                  const sal = Number(cobro.total)-pag
+                  setModalRedirigir({...modalRedirigir, cobro_id:e.target.value, monto_aplicar:String(Math.min(modalRedirigir.monto_disponible,sal))})
+                }}>
+                  {modalRedirigir.cobros_pendientes.map(c=>{
+                    const pag = c.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
+                    const sal = Number(c.total)-pag
+                    return <option key={c.id} value={c.id}>{periodoLabel(c.periodo)} — Saldo: {gs(sal)} Gs.</option>
+                  })}
+                </select>
+              </div>
+              <div className="form-group" style={{marginBottom:6}}>
+                <label>Monto a aplicar (Gs.) *</label>
+                <input type="number" min="1" max={modalRedirigir.monto_disponible}
+                  value={modalRedirigir.monto_aplicar}
+                  onChange={e=>setModalRedirigir({...modalRedirigir,monto_aplicar:e.target.value})}
+                />
+              </div>
+              {Number(modalRedirigir.monto_aplicar) > 0 && Number(modalRedirigir.monto_aplicar) < modalRedirigir.monto_disponible && (
+                <div style={{fontSize:12,color:'var(--orange)',marginBottom:14,padding:'6px 10px',background:'#fff7ed',borderRadius:6}}>
+                  ⚠ Sobrante: {gs(modalRedirigir.monto_disponible - Number(modalRedirigir.monto_aplicar))} Gs. quedará disponible para asignar a otro cobro después.
+                </div>
+              )}
+            </>
+          )}
+          <div className="modal-footer">
+            <button className="btn btn-outline" onClick={()=>setModalRedirigir(null)}>Cancelar</button>
+            {modalRedirigir.cobros_pendientes.length>0&&(
+              <button className="btn btn-purple" onClick={aplicarCreditoManual} disabled={procesando}>
+                {procesando?'Procesando...':'Aplicar crédito'}
+              </button>
+            )}
           </div>
         </div></div>
       )}
