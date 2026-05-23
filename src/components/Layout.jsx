@@ -56,7 +56,7 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
       <div className={`sidebar-overlay ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
 
       <aside className={`sidebar ${open ? 'open' : ''}`}>
-        <div className="sidebar-title">ÑONGATU</div>
+        <div className="sidebar-title">🐄 ÑONGATU</div>
 
         <nav className="sidebar-nav">
           {NAV.filter(n => canSee(n.key)).map(n => (

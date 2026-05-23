@@ -5,28 +5,34 @@ import { gs, periodoLabel } from '../utils/helpers'
 const ESPECIE_COLORS = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#f97316']
 const ESPECIE_ICONS  = ['🐄','🐎','🐑','🐐','🐖','🐓','🐾']
 
-function getGreeting(username) {
-  const h   = new Date().getHours()
-  const day = new Date().getDay()
-  const nom = username || ''
-  if (day === 0 || day === 6) return `¡Feliz fin de semana, ${nom}! 🎉`
-  if (day === 5) return `¡Feliz viernes, ${nom}! ✨`
-  const greet = h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches'
-  const phrases = [
-    '¡Que sea un gran día!',
-    '¡El campo te espera!',
-    '¡Todo bajo control!',
-    '¡Buen trabajo, adelante!',
-    '¡Los números te acompañan!',
-  ]
-  return `${greet}, ${nom}! ${phrases[new Date().getDate() % phrases.length]}`
-}
+const FRASES = [
+  '¡Que los números y el campo te acompañen hoy!',
+  '¡Un buen día para mantener todo bajo control!',
+  '¡El trabajo constante construye grandes resultados!',
+  'Recordá revisar los cobros pendientes del mes.',
+  '¡El campo bien gestionado es un campo próspero!',
+  'Cada detalle registrado hoy es una decisión mejor mañana.',
+  '¡Adelante, el trabajo bien hecho siempre vale la pena!',
+  'Revisá si hay animales nuevos para registrar hoy.',
+  '¡Los datos precisos son la base de un buen negocio!',
+  'No olvides verificar los vencimientos de esta semana.',
+  '¡Buen comienzo es medio camino andado!',
+  '¡La organización es la clave del éxito ganadero!',
+]
+
+const PROXIMAS = [
+  { icon: '📊', titulo: 'Reportes avanzados', desc: 'Gráficos históricos por período y cliente' },
+  { icon: '📱', titulo: 'Notificaciones', desc: 'Alertas de vencimientos y cobros pendientes' },
+  { icon: '📤', titulo: 'Exportación masiva', desc: 'Exportar todo a Excel con un solo click' },
+  { icon: '🔄', titulo: 'Historial de cambios', desc: 'Trazabilidad completa de movimientos' },
+  { icon: '🧾', titulo: 'Facturación electrónica', desc: 'Integración con SIFEN Paraguay' },
+]
 
 export default function Dashboard({ user, onNavigate }) {
-  const [stats, setStats]         = useState({ animales:0, clientes:0, cobrado:0, pendiente:0 })
-  const [porEspecie, setPorEspecie] = useState([])
-  const [recientes, setRecientes]  = useState([])
-  const [loading, setLoading]      = useState(true)
+  const [stats, setStats]           = useState({ animales:0, clientes:0, cobrado:0, pendiente:0 })
+  const [porEspecie, setPorEspecie]  = useState([])
+  const [recientes, setRecientes]   = useState([])
+  const [loading, setLoading]       = useState(true)
 
   useEffect(() => { cargar() }, [])
 
@@ -47,7 +53,6 @@ export default function Dashboard({ user, onNavigate }) {
       ])
 
       const animales  = animalesRes.data?.reduce((s,a)=>s+Number(a.cantidad),0)||0
-      // Total cobrado = suma real de todos los pagos recibidos
       const cobrado   = cobrosRes.data?.reduce((s,c)=>{
         const pag = c.pagos?.reduce((ps,p)=>ps+Number(p.monto),0)||0
         return s + pag
@@ -60,7 +65,6 @@ export default function Dashboard({ user, onNavigate }) {
       setStats({ animales, clientes:clientes||0, cobrado, pendiente })
       setRecientes(recientesRes.data||[])
 
-      // Agrupar por especie → categoría
       const mapa = {}
       catRes.data?.forEach(a => {
         const espNombre = a.categorias?.especies?.nombre
@@ -79,8 +83,13 @@ export default function Dashboard({ user, onNavigate }) {
     setLoading(false)
   }
 
-  const hoy = new Date()
+  const hoy     = new Date()
+  const diaIdx  = hoy.getDate() % FRASES.length
+  const frase   = FRASES[diaIdx]
   const fechaStr = hoy.toLocaleDateString('es-PY',{weekday:'long',year:'numeric',month:'long',day:'numeric'})
+  // Capitalize first letter
+  const fechaCap = fechaStr.charAt(0).toUpperCase() + fechaStr.slice(1)
+
   const maxAnimales = Math.max(...porEspecie.map(e=>e.total), 1)
 
   const estadoBadge = e => {
@@ -88,6 +97,13 @@ export default function Dashboard({ user, onNavigate }) {
     if (e==='parcial') return {bg:'#fef3c7',color:'#92400e',label:'Parcial'}
     return {bg:'#fee2e2',color:'#991b1b',label:'Pendiente'}
   }
+
+  const CARDS = [
+    { label:'Animales activos', value: stats.animales.toLocaleString('es-PY'),    icon:'🐄', bg:'linear-gradient(135deg,#10b981,#059669)', sub:'cabezas en pastura' },
+    { label:'Clientes',         value: stats.clientes.toLocaleString('es-PY'),    icon:'👤', bg:'linear-gradient(135deg,#3b82f6,#2563eb)', sub:'contratos activos' },
+    { label:'Total cobrado',    value: gs(stats.cobrado)+' Gs.',                  icon:'✅', bg:'linear-gradient(135deg,#8b5cf6,#7c3aed)', sub:'pagos recibidos' },
+    { label:'Total pendiente',  value: gs(stats.pendiente)+' Gs.',                icon:'⏳', bg:'linear-gradient(135deg,#f59e0b,#d97706)', sub:'por cobrar' },
+  ]
 
   if (loading) return <div className="spinner"/>
 
@@ -101,17 +117,21 @@ export default function Dashboard({ user, onNavigate }) {
       {/* ── Bienvenida ── */}
       <div style={{
         background:'linear-gradient(135deg,#1e3a5f 0%,#2563eb 60%,#3b82f6 100%)',
-        borderRadius:14, padding:'13px 20px', color:'#fff',
+        borderRadius:14, padding:'14px 20px', color:'#fff',
         display:'flex', justifyContent:'space-between', alignItems:'center',
         flexWrap:'wrap', gap:8, flexShrink:0
       }}>
         <div>
-          <div style={{fontSize:16, fontWeight:800, letterSpacing:'-0.3px', marginBottom:2}}>
-            {getGreeting(user?.nombre_usuario)}
+          <div style={{fontSize:11,fontWeight:600,opacity:0.7,textTransform:'uppercase',letterSpacing:'1px',marginBottom:3}}>
+            Bienvenida a Ñongatu
           </div>
-          <div style={{fontSize:11, opacity:0.75, textTransform:'capitalize'}}>{fechaStr}</div>
+          <div style={{fontSize:18,fontWeight:800,letterSpacing:'-0.3px',marginBottom:2}}>
+            {user?.nombre_usuario || ''}
+          </div>
+          <div style={{fontSize:11,opacity:0.75,marginBottom:2}}>{fechaCap}</div>
+          <div style={{fontSize:11,opacity:0.65,fontStyle:'italic'}}>{frase}</div>
         </div>
-        <div style={{display:'flex', gap:8}}>
+        <div style={{display:'flex',gap:8}}>
           <button onClick={()=>onNavigate?.('animales')} style={{
             background:'rgba(255,255,255,0.15)', color:'#fff',
             border:'1px solid rgba(255,255,255,0.3)', borderRadius:8,
@@ -129,37 +149,32 @@ export default function Dashboard({ user, onNavigate }) {
       <div style={{
         display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, flexShrink:0
       }}>
-        {[
-          { label:'Animales activos', value:stats.animales,              icon:'🐄', bg:'linear-gradient(135deg,#10b981,#059669)', sub:'cabezas en pastura' },
-          { label:'Clientes',         value:stats.clientes,              icon:'👤', bg:'linear-gradient(135deg,#3b82f6,#2563eb)', sub:'contratos activos' },
-          { label:'Total cobrado',    value:gs(stats.cobrado)+' Gs.',    icon:'✅', bg:'linear-gradient(135deg,#8b5cf6,#7c3aed)', sub:'pagos recibidos' },
-          { label:'Total pendiente',  value:gs(stats.pendiente)+' Gs.',  icon:'⏳', bg:'linear-gradient(135deg,#f59e0b,#d97706)', sub:'por cobrar' },
-        ].map(card=>(
+        {CARDS.map(card=>(
           <div key={card.label} style={{
             background:card.bg, borderRadius:12, padding:'14px 16px', color:'#fff',
             boxShadow:'0 4px 12px rgba(0,0,0,0.12)', position:'relative', overflow:'hidden'
           }}>
             <div style={{position:'absolute',right:12,top:10,fontSize:22,opacity:0.22}}>{card.icon}</div>
-            <div style={{fontSize:10,fontWeight:600,opacity:0.85,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:4}}>{card.label}</div>
-            <div style={{fontSize:typeof card.value==='number'?26:15,fontWeight:800,lineHeight:1.1,marginBottom:2}}>{card.value}</div>
+            <div style={{fontSize:10,fontWeight:600,opacity:0.85,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:5}}>{card.label}</div>
+            <div style={{fontSize:18,fontWeight:800,lineHeight:1.2,marginBottom:3,wordBreak:'break-word'}}>{card.value}</div>
             <div style={{fontSize:10,opacity:0.7}}>{card.sub}</div>
           </div>
         ))}
       </div>
 
-      {/* ── Cuerpo: gráfico + actividad reciente ── */}
+      {/* ── Cuerpo: panel izquierdo + actividad reciente ── */}
       <div style={{
         display:'grid', gridTemplateColumns:'1fr 290px', gap:10,
         flex:1, minHeight:0, overflow:'hidden'
       }}>
 
-        {/* Gráfico por especie */}
+        {/* Panel izquierdo: gráfico + categorías + próximamente */}
         <div style={{
           background:'var(--card-bg,#fff)', border:'1px solid var(--border)',
           borderRadius:14, padding:'14px 18px',
           display:'flex', flexDirection:'column', overflow:'hidden'
         }}>
-          <div style={{fontSize:14,fontWeight:700,marginBottom:2,flexShrink:0}}>Animales en pastura</div>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:1,flexShrink:0}}>Animales en pastura</div>
           <div style={{fontSize:11,color:'var(--text-secondary)',marginBottom:10,flexShrink:0}}>Por especie y categoría</div>
 
           {porEspecie.length === 0 ? (
@@ -171,7 +186,7 @@ export default function Dashboard({ user, onNavigate }) {
               {/* Barras */}
               <div style={{
                 display:'flex', alignItems:'flex-end', gap:14,
-                height:96, flexShrink:0,
+                height:88, flexShrink:0,
                 paddingBottom:4, borderBottom:'2px solid var(--border)'
               }}>
                 {porEspecie.map((esp,i)=>(
@@ -179,12 +194,12 @@ export default function Dashboard({ user, onNavigate }) {
                     <div style={{fontSize:10,fontWeight:700,color:ESPECIE_COLORS[i%ESPECIE_COLORS.length]}}>{esp.total}</div>
                     <div style={{
                       width:'100%', maxWidth:46,
-                      height:`${Math.round((esp.total/maxAnimales)*72)+8}px`,
+                      height:`${Math.round((esp.total/maxAnimales)*64)+8}px`,
                       background:ESPECIE_COLORS[i%ESPECIE_COLORS.length],
                       borderRadius:'5px 5px 0 0', opacity:0.9,
                       display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:3
                     }}>
-                      <span style={{fontSize:13}}>{ESPECIE_ICONS[i%ESPECIE_ICONS.length]}</span>
+                      <span style={{fontSize:12}}>{ESPECIE_ICONS[i%ESPECIE_ICONS.length]}</span>
                     </div>
                     <div style={{fontSize:10,fontWeight:600,color:'var(--text-secondary)',textAlign:'center',wordBreak:'break-word'}}>{esp.especie}</div>
                   </div>
@@ -192,17 +207,17 @@ export default function Dashboard({ user, onNavigate }) {
               </div>
 
               {/* Desglose categorías */}
-              <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:8}}>
+              <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:6}}>
                 {porEspecie.map((esp,i)=>(
                   <div key={esp.especie}>
-                    <div style={{fontSize:11,fontWeight:700,color:ESPECIE_COLORS[i%ESPECIE_COLORS.length],marginBottom:4}}>
+                    <div style={{fontSize:11,fontWeight:700,color:ESPECIE_COLORS[i%ESPECIE_COLORS.length],marginBottom:3}}>
                       {esp.especie} — {esp.total} cabezas
                     </div>
-                    <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
                       {esp.categorias.map(cat=>(
                         <div key={cat.nombre} style={{
                           background:'var(--main-bg,#f9fafb)',border:'1px solid var(--border)',
-                          borderRadius:6, padding:'3px 8px', fontSize:11
+                          borderRadius:6, padding:'2px 8px', fontSize:11
                         }}>
                           <span style={{fontWeight:600}}>{cat.nombre}</span>
                           <span style={{marginLeft:5,color:'var(--text-secondary)'}}>{cat.cant}</span>
@@ -214,6 +229,28 @@ export default function Dashboard({ user, onNavigate }) {
               </div>
             </div>
           )}
+
+          {/* Próximamente */}
+          <div style={{flexShrink:0,borderTop:'1px solid var(--border)',marginTop:10,paddingTop:10}}>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'0.6px',marginBottom:7}}>
+              Próximamente en Ñongatu
+            </div>
+            <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
+              {PROXIMAS.map(f=>(
+                <div key={f.titulo} style={{
+                  display:'flex',alignItems:'center',gap:6,
+                  background:'var(--main-bg,#f9fafb)',border:'1px solid var(--border)',
+                  borderRadius:8,padding:'5px 10px',flex:'1 1 160px',minWidth:0
+                }}>
+                  <span style={{fontSize:15,flexShrink:0}}>{f.icon}</span>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--text-primary)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{f.titulo}</div>
+                    <div style={{fontSize:10,color:'var(--text-secondary)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{f.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Actividad reciente */}

@@ -637,11 +637,13 @@ export default function Cobros({ user }) {
 
   // ── Asignación/reasignación manual de crédito a un cobro específico ───────
   const abrirAsignarCredito = (cr) => {
-    // Si el crédito ya está aplicado (pagos FK existentes), al reasignar
-    // primero se revierten → el monto completo queda disponible.
     const montoAplicadoCr = (cr.pagos||[]).reduce((s,p)=>s+Number(p.monto),0)
-    const esReasignacion = cr.aplicado || montoAplicadoCr > 0
-    const montoDisponible = esReasignacion ? Number(cr.monto) : Number(cr.monto) - montoAplicadoCr
+    const montoDisponible = Number(cr.monto) - montoAplicadoCr
+    // Reasignación solo cuando el crédito está completamente aplicado (sin saldo disponible)
+    // Créditos parcialmente aplicados usan modo aditivo: se agrega un pago sin revertir los existentes
+    const esReasignacion = montoDisponible <= 0
+    // Si es reasignación, se revertirán todos los pagos → el monto completo queda disponible de nuevo
+    const montoParaAsignar = esReasignacion ? Number(cr.monto) : montoDisponible
     const cobrosPendCli = cobros.filter(c=>
       c.cliente_id===cr.cliente_id &&
       (c.estado==='pendiente'||c.estado==='parcial')
@@ -653,10 +655,11 @@ export default function Cobros({ user }) {
     setModalRedirigir({
       credito: cr,
       es_reasignacion: esReasignacion,
-      monto_disponible: montoDisponible,
+      monto_disponible: montoParaAsignar,
+      monto_ya_aplicado: esReasignacion ? 0 : montoAplicadoCr,
       cobros_pendientes: cobrosPendCli,
       cobro_id: primerCobro?.id?.toString() || '',
-      monto_aplicar: primerCobro ? String(Math.min(montoDisponible, saldoPrimero)) : ''
+      monto_aplicar: primerCobro ? String(Math.min(montoParaAsignar, saldoPrimero)) : ''
     })
   }
 
@@ -732,7 +735,9 @@ export default function Cobros({ user }) {
     await supabase.from('cobros').update({estado: nuevoEstado}).eq('id', parseInt(cobro_id))
 
     // ── Paso 5: marcar crédito como aplicado si el monto fue completamente usado
-    if (aplicar >= Number(credito.monto)) {
+    // En modo aditivo, sumar lo ya aplicado anteriormente + lo que se aplica ahora
+    const totalAplicado = (modalRedirigir.monto_ya_aplicado || 0) + aplicar
+    if (totalAplicado >= Number(credito.monto)) {
       await supabase.from('creditos_cliente').update({
         aplicado: true, cobro_id: parseInt(cobro_id)
       }).eq('id', credito.id)
@@ -1224,7 +1229,7 @@ export default function Cobros({ user }) {
                       {puedeRegistrar&&(
                         <td>
                           <button className="btn btn-purple btn-sm" onClick={()=>abrirAsignarCredito(cr)}>
-                            {cr.aplicado||montoAplicadoCr>0 ? 'Reasignar' : 'Asignar'}
+                            {montoDisponibleCr > 0 ? 'Asignar' : 'Reasignar'}
                           </button>
                         </td>
                       )}
