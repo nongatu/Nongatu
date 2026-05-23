@@ -14,7 +14,17 @@ export default function Categorias({ user }) {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
 
-  const esAdmin = user?.rol === 'Administrador'
+  const perms = user?.rol === 'Administrador' ? { todo: true } : (user?.permisos || {})
+  const puedeVer       = perms.todo || perms.ver_categorias
+  const puedeGestionar = perms.todo || perms.gestionar_categorias
+
+  if (!puedeVer) {
+    return (
+      <div className="page-card" style={{ color: 'var(--text-secondary)' }}>
+        No tenés permiso para ver las categorías. Pedile al administrador que te habilite el acceso.
+      </div>
+    )
+  }
 
   useEffect(() => { cargar() }, [])
 
@@ -81,7 +91,7 @@ export default function Categorias({ user }) {
 
   return (
     <div>
-      {esAdmin && (
+      {puedeGestionar && (
         <div className="page-card">
           <h3 style={{ marginBottom: 16, fontSize: 16, fontWeight: 700 }}>
             {editId ? 'Editar categoría' : 'Nueva categoría'}
@@ -143,7 +153,7 @@ export default function Categorias({ user }) {
             <span style={{ fontWeight: 700, fontSize: 15 }}>{esp.nombre}</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span style={{ fontSize: 13, opacity: 0.7 }}>{esp.cats.length} categorías</span>
-              {esAdmin && (
+              {puedeGestionar && (
                 <button className="btn btn-red btn-sm" onClick={() => eliminarEspecie(esp.id)}>Eliminar especie</button>
               )}
             </div>
@@ -156,7 +166,7 @@ export default function Categorias({ user }) {
                   <th>Nombre</th>
                   <th>Se cobra</th>
                   <th>Orden</th>
-                  {esAdmin && <th>Acciones</th>}
+                  {puedeGestionar && <th>Acciones</th>}
                 </tr>
               </thead>
               <tbody>
@@ -172,7 +182,7 @@ export default function Categorias({ user }) {
                       </span>
                     </td>
                     <td>{c.orden}</td>
-                    {esAdmin && (
+                    {puedeGestionar && (
                       <td>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button className="btn btn-blue btn-sm" onClick={() => editar(c)}>Editar</button>

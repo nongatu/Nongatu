@@ -163,7 +163,10 @@ function filasPDF(tipo, resultado) {
 // ── Etiqueta de tipo de movimiento ────────────────────────────────────────────
 const tipoColor = { baja:'red', salida:'orange', reclasificacion:'blue', ingreso:'green' }
 
-export default function Reportes({ user }) {
+export default function Reportes({ user, onNavigate }) {
+  const perms = user?.rol === 'Administrador' ? { todo: true } : (user?.permisos || {})
+  const puedeExportarPDF = perms.todo || perms.exportar_pdf
+  const puedeExportarCSV = perms.todo || perms.exportar_csv
   const [tipo, setTipo] = useState('')
   const [cliente, setCliente] = useState('')
   const [desde, setDesde] = useState('')
@@ -477,8 +480,14 @@ export default function Reportes({ user }) {
             {loading ? 'Generando...' : 'Generar'}
           </button>
           {hayResultados && <>
-            <button className="btn btn-green" onClick={exportarCSV}>Exportar CSV</button>
-            <button className="btn btn-orange" onClick={exportarPDF}>Exportar PDF</button>
+            {puedeExportarCSV
+              ? <button className="btn btn-green" onClick={exportarCSV}>Exportar CSV</button>
+              : <span title="No tenés permiso para exportar CSV" style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 7, opacity: 0.6 }}>CSV bloqueado 🔒</span>
+            }
+            {puedeExportarPDF
+              ? <button className="btn btn-orange" onClick={exportarPDF}>Exportar PDF</button>
+              : <span title="No tenés permiso para exportar PDF" style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 7, opacity: 0.6 }}>PDF bloqueado 🔒</span>
+            }
           </>}
         </div>
       </div>

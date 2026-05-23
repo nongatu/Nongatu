@@ -44,7 +44,7 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
       animales:   'ver_animales',
       cobros:     'ver_cobros',
       reportes:   'ver_reportes',
-      categorias: false,
+      categorias: 'ver_categorias',
       usuarios:   false,
     }
     return map[key] !== undefined ? (map[key] ? perms[map[key]] : false) : key === 'dashboard'
