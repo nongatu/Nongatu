@@ -1,31 +1,58 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../supabase'
 
+const PERFIL_VACIO = { nombre: '', segundo_nombre: '', apellido: '', apodo: '', telefono: '', email: '' }
+
+function cargarPerfil(username) {
+  try {
+    const saved = localStorage.getItem(`profile_data_${username}`)
+    if (saved) {
+      const p = JSON.parse(saved)
+      // Migración: si tenía nombre_completo pero no tiene los nuevos campos, ignorar (que llene de nuevo)
+      return {
+        nombre:         p.nombre         ?? '',
+        segundo_nombre: p.segundo_nombre ?? '',
+        apellido:       p.apellido       ?? '',
+        apodo:          p.apodo          ?? '',
+        telefono:       p.telefono       ?? '',
+        email:          p.email          ?? '',
+      }
+    }
+  } catch {}
+  return { ...PERFIL_VACIO }
+}
+
 export default function Perfil({ user }) {
   const [foto, setFoto] = useState(() =>
     localStorage.getItem(`profile_photo_${user?.nombre_usuario}`) || null
   )
-  const [perfil, setPerfil] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`profile_data_${user?.nombre_usuario}`)
-      if (saved) return JSON.parse(saved)
-    } catch {}
-    return { nombre_completo: '', telefono: '', email: '' }
-  })
-  const [pass, setPass]   = useState({ actual: '', nueva: '', confirmar: '' })
-  const [msg, setMsg]     = useState(null)
-  const fileRef           = useRef()
+  const [perfil, setPerfil] = useState(() => cargarPerfil(user?.nombre_usuario))
+  const [pass,   setPass]   = useState({ actual: '', nueva: '', confirmar: '' })
+  const [msg,    setMsg]    = useState(null)
+  const fileRef             = useRef()
 
   const showMsg = (type, text) => {
     setMsg({ type, text })
     setTimeout(() => setMsg(null), 3500)
   }
 
+  const set = (field) => (e) => setPerfil(p => ({ ...p, [field]: e.target.value }))
+
+  // ── Nombre para mostrar ───────────────────────────────────────────────────
+  const nombreMostrar = perfil.apodo?.trim()
+    || perfil.nombre?.trim()
+    || user?.nombre_usuario
+    || '?'
+
+  const nombreCompleto = [perfil.nombre, perfil.segundo_nombre, perfil.apellido]
+    .filter(Boolean).join(' ') || user?.nombre_usuario
+
+  const initial = nombreMostrar.charAt(0).toUpperCase()
+
   // ── Foto ──────────────────────────────────────────────────────────────────
   const handleFoto = (e) => {
     const file = e.target.files[0]
     if (!file) return
-    // Resize to max 400px to keep localStorage lean
     const reader = new FileReader()
     reader.onload = (ev) => {
       const img = new Image()
@@ -63,28 +90,19 @@ export default function Perfil({ user }) {
     if (pass.nueva !== pass.confirmar) return showMsg('error', 'Las contraseñas nuevas no coinciden.')
 
     const { data, error: fetchErr } = await supabase
-      .from('usuarios')
-      .select('password_hash')
-      .eq('id', user.id)
-      .single()
+      .from('usuarios').select('password_hash').eq('id', user.id).single()
 
     if (fetchErr || !data) return showMsg('error', 'Error al verificar usuario.')
     if (data.password_hash !== pass.actual) return showMsg('error', 'La contraseña actual no es correcta.')
 
-    const { error } = await supabase
-      .from('usuarios')
-      .update({ password_hash: pass.nueva })
-      .eq('id', user.id)
-
+    const { error } = await supabase.from('usuarios').update({ password_hash: pass.nueva }).eq('id', user.id)
     if (error) return showMsg('error', 'Error al guardar la nueva contraseña.')
     setPass({ actual: '', nueva: '', confirmar: '' })
     showMsg('success', 'Contraseña cambiada correctamente.')
   }
 
-  const initial = (perfil.nombre_completo || user?.nombre_usuario || '?').charAt(0).toUpperCase()
-
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto' }}>
+    <div style={{ maxWidth: 580, margin: '0 auto' }}>
       <div className="section-header">
         <h2>Mi Perfil</h2>
       </div>
@@ -103,7 +121,7 @@ export default function Perfil({ user }) {
               width: 96, height: 96, borderRadius: '50%',
               background: foto ? 'transparent' : 'linear-gradient(135deg,#1e3a5f,#2563eb)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              overflow: 'hidden', border: '3px solid var(--border)', cursor: 'pointer'
+              overflow: 'hidden', border: '3px solid var(--border)', cursor: 'pointer',
             }}
             onClick={() => fileRef.current?.click()}
           >
@@ -118,14 +136,19 @@ export default function Perfil({ user }) {
               background: '#2563eb', borderRadius: '50%',
               width: 26, height: 26, display: 'flex', alignItems: 'center',
               justifyContent: 'center', cursor: 'pointer',
-              border: '2px solid var(--card-bg)', fontSize: 13
+              border: '2px solid var(--card-bg)', fontSize: 13,
             }}
             onClick={() => fileRef.current?.click()}
           >✏️</div>
         </div>
 
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 17 }}>{perfil.nombre_completo || user?.nombre_usuario}</div>
+          {/* Nombre de pila grande */}
+          <div style={{ fontWeight: 700, fontSize: 20 }}>{nombreMostrar}</div>
+          {/* Nombre completo si difiere */}
+          {perfil.apodo?.trim() && nombreCompleto && (
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 1 }}>{nombreCompleto}</div>
+          )}
           <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 2 }}>
             @{user?.nombre_usuario} · {user?.rol}
           </div>
@@ -139,63 +162,88 @@ export default function Perfil({ user }) {
           </div>
         </div>
 
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={handleFoto}
-        />
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFoto} />
       </div>
 
-      {/* ── Datos profesionales ── */}
+      {/* ── Datos personales ── */}
       <div className="page-card" style={{ marginBottom: 16 }}>
-        <h3 style={{
-          fontSize: 14, fontWeight: 700, marginBottom: 16,
-          paddingBottom: 10, borderBottom: '1px solid var(--border)'
-        }}>Datos profesionales</h3>
+        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
+          Datos personales
+        </h3>
 
         <div className="form-grid">
+          {/* Usuario + Rol (readonly) */}
           <div className="form-group">
-            <label>Usuario</label>
-            <input
-              value={user?.nombre_usuario || ''}
-              disabled
-              style={{ background: 'var(--table-head)', color: 'var(--text-secondary)' }}
-            />
+            <label>Usuario del sistema</label>
+            <input value={user?.nombre_usuario || ''} disabled
+              style={{ background: 'var(--table-head)', color: 'var(--text-secondary)' }} />
           </div>
           <div className="form-group">
             <label>Rol</label>
+            <input value={user?.rol || ''} disabled
+              style={{ background: 'var(--table-head)', color: 'var(--text-secondary)' }} />
+          </div>
+
+          {/* Nombre, Segundo Nombre, Apellido */}
+          <div className="form-group">
+            <label>Primer nombre *</label>
             <input
-              value={user?.rol || ''}
-              disabled
-              style={{ background: 'var(--table-head)', color: 'var(--text-secondary)' }}
+              value={perfil.nombre}
+              onChange={set('nombre')}
+              placeholder="Ej: Dahiana"
             />
           </div>
           <div className="form-group">
-            <label>Nombre completo</label>
+            <label>Segundo nombre</label>
             <input
-              value={perfil.nombre_completo}
-              onChange={e => setPerfil(p => ({ ...p, nombre_completo: e.target.value }))}
-              placeholder="Nombre y apellido"
+              value={perfil.segundo_nombre}
+              onChange={set('segundo_nombre')}
+              placeholder="Opcional"
             />
           </div>
+          <div className="form-group">
+            <label>Apellido</label>
+            <input
+              value={perfil.apellido}
+              onChange={set('apellido')}
+              placeholder="Ej: Krause"
+            />
+          </div>
+
+          {/* Apodo */}
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              Apodo
+              <span style={{
+                fontSize: 10, fontWeight: 700, background: '#2563eb', color: '#fff',
+                borderRadius: 8, padding: '1px 7px', letterSpacing: '0.3px',
+              }}>
+                Usado en el saludo
+              </span>
+            </label>
+            <input
+              value={perfil.apodo}
+              onChange={set('apodo')}
+              placeholder="Ej: Didi"
+            />
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+              {perfil.apodo?.trim()
+                ? <>El dashboard te saludará: <strong>"Bienvenida a Ñongatu, {perfil.apodo.trim()}"</strong></>
+                : perfil.nombre?.trim()
+                  ? <>Sin apodo, el saludo usará tu primer nombre: <strong>"{perfil.nombre.trim()}"</strong></>
+                  : 'Si lo dejás vacío, se usará tu primer nombre. Si tampoco, tu usuario.'
+              }
+            </div>
+          </div>
+
+          {/* Teléfono + Email */}
           <div className="form-group">
             <label>Teléfono</label>
-            <input
-              value={perfil.telefono}
-              onChange={e => setPerfil(p => ({ ...p, telefono: e.target.value }))}
-              placeholder="Ej: 0981 123 456"
-            />
+            <input value={perfil.telefono} onChange={set('telefono')} placeholder="Ej: 0981 123 456" />
           </div>
           <div className="form-group" style={{ gridColumn: 'span 2' }}>
             <label>Email</label>
-            <input
-              type="email"
-              value={perfil.email}
-              onChange={e => setPerfil(p => ({ ...p, email: e.target.value }))}
-              placeholder="correo@ejemplo.com"
-            />
+            <input type="email" value={perfil.email} onChange={set('email')} placeholder="correo@ejemplo.com" />
           </div>
         </div>
 
@@ -206,38 +254,23 @@ export default function Perfil({ user }) {
 
       {/* ── Cambiar contraseña ── */}
       <div className="page-card">
-        <h3 style={{
-          fontSize: 14, fontWeight: 700, marginBottom: 16,
-          paddingBottom: 10, borderBottom: '1px solid var(--border)'
-        }}>Cambiar contraseña</h3>
-
+        <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
+          Cambiar contraseña
+        </h3>
         <div className="form-grid">
           <div className="form-group">
             <label>Contraseña actual</label>
-            <input
-              type="password"
-              value={pass.actual}
-              onChange={e => setPass(p => ({ ...p, actual: e.target.value }))}
-            />
+            <input type="password" value={pass.actual} onChange={e => setPass(p => ({ ...p, actual: e.target.value }))} />
           </div>
           <div className="form-group">
             <label>Nueva contraseña</label>
-            <input
-              type="password"
-              value={pass.nueva}
-              onChange={e => setPass(p => ({ ...p, nueva: e.target.value }))}
-            />
+            <input type="password" value={pass.nueva} onChange={e => setPass(p => ({ ...p, nueva: e.target.value }))} />
           </div>
           <div className="form-group">
             <label>Confirmar nueva</label>
-            <input
-              type="password"
-              value={pass.confirmar}
-              onChange={e => setPass(p => ({ ...p, confirmar: e.target.value }))}
-            />
+            <input type="password" value={pass.confirmar} onChange={e => setPass(p => ({ ...p, confirmar: e.target.value }))} />
           </div>
         </div>
-
         <div className="btn-row" style={{ marginBottom: 0 }}>
           <button className="btn btn-green" onClick={cambiarPassword}>Cambiar contraseña</button>
         </div>

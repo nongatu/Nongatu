@@ -34,7 +34,7 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
       const saved = localStorage.getItem(`profile_data_${user?.nombre_usuario}`)
       if (saved) {
         const p = JSON.parse(saved)
-        if (p.nombre_completo) return p.nombre_completo
+        return p.apodo?.trim() || p.nombre?.trim() || user?.nombre_usuario || ''
       }
     } catch {}
     return user?.nombre_usuario || ''

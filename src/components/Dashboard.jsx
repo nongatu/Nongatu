@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { gs, periodoLabel } from '../utils/helpers'
+import { getFraseHoy } from './Configuracion'
 
 const ESPECIE_COLORS = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#f97316']
 const ESPECIE_ICONS  = ['🐄','🐎','🐑','🐐','🐖','🐓','🐾']
@@ -19,17 +20,6 @@ const FRASES_DEFAULT = [
   '¡Buen comienzo es medio camino andado!',
   '¡La organización es la clave del éxito ganadero!',
 ]
-
-function getFrases() {
-  try {
-    const saved = localStorage.getItem('nongatu_frases')
-    if (saved) {
-      const arr = JSON.parse(saved)
-      if (Array.isArray(arr) && arr.length > 0) return arr
-    }
-  } catch {}
-  return FRASES_DEFAULT
-}
 
 const PROXIMAS = [
   { icon: '📊', titulo: 'Reportes avanzados', desc: 'Gráficos históricos por período y cliente' },
@@ -94,10 +84,20 @@ export default function Dashboard({ user, onNavigate }) {
     setLoading(false)
   }
 
-  const hoy     = new Date()
-  const FRASES  = getFrases()
-  const diaIdx  = hoy.getDate() % FRASES.length
-  const frase   = FRASES[diaIdx]
+  const hoy    = new Date()
+  const frase  = getFraseHoy() ?? FRASES_DEFAULT[hoy.getDate() % FRASES_DEFAULT.length]
+
+  // Nombre de saludo: apodo → primer nombre → usuario
+  const nombreSaludo = (() => {
+    try {
+      const saved = localStorage.getItem(`profile_data_${user?.nombre_usuario}`)
+      if (saved) {
+        const p = JSON.parse(saved)
+        return p.apodo?.trim() || p.nombre?.trim() || null
+      }
+    } catch {}
+    return null
+  })() || user?.nombre_usuario || ''
   const fechaStr = hoy.toLocaleDateString('es-PY',{weekday:'long',year:'numeric',month:'long',day:'numeric'})
   // Capitalize first letter
   const fechaCap = fechaStr.charAt(0).toUpperCase() + fechaStr.slice(1)
@@ -135,10 +135,10 @@ export default function Dashboard({ user, onNavigate }) {
       }}>
         <div>
           <div style={{fontSize:22,fontWeight:800,letterSpacing:'-0.3px',marginBottom:4}}>
-            Bienvenida a Ñongatu, {user?.nombre_usuario || ''}
+            Bienvenida a Ñongatu, {nombreSaludo}
           </div>
-          <div style={{fontSize:14,opacity:0.8,marginBottom:3}}>{fechaCap}</div>
-          <div style={{fontSize:13,opacity:0.7,fontStyle:'italic'}}>{frase}</div>
+          <div style={{fontSize:16,opacity:0.85,marginBottom:4}}>{fechaCap}</div>
+          <div style={{fontSize:15,opacity:0.75,fontStyle:'italic'}}>{frase}</div>
         </div>
         <div style={{display:'flex',gap:8}}>
           <button onClick={()=>onNavigate?.('animales')} style={{
