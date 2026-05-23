@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 
 const NAV = [
-  { key: 'dashboard',  label: 'Inicio' },
-  { key: 'clientes',   label: 'Clientes' },
-  { key: 'animales',   label: 'Animales' },
-  { key: 'cobros',     label: 'Cobros' },
-  { key: 'reportes',   label: 'Reportes' },
-  { key: 'categorias', label: 'Categorías' },
-  { key: 'usuarios',   label: 'Usuarios' },
+  { key: 'dashboard',     label: 'Inicio' },
+  { key: 'clientes',      label: 'Clientes' },
+  { key: 'animales',      label: 'Animales' },
+  { key: 'cobros',        label: 'Cobros' },
+  { key: 'reportes',      label: 'Reportes' },
+  { key: 'categorias',    label: 'Categorías' },
+  { key: 'usuarios',      label: 'Usuarios' },
+  { key: 'configuracion', label: 'Configuración', adminOnly: true },
 ]
 
 const ALL_LABELS = { ...Object.fromEntries(NAV.map(n=>[n.key,n.label])), perfil: 'Mi Perfil' }
@@ -35,6 +36,8 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
   }
 
   const canSee = (key) => {
+    const navItem = NAV.find(n => n.key === key)
+    if (navItem?.adminOnly) return user?.rol === 'Administrador'
     if (user?.rol === 'Administrador') return true
     const map = {
       clientes:   'ver_clientes',

@@ -5,7 +5,7 @@ import { gs, periodoLabel } from '../utils/helpers'
 const ESPECIE_COLORS = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#f97316']
 const ESPECIE_ICONS  = ['🐄','🐎','🐑','🐐','🐖','🐓','🐾']
 
-const FRASES = [
+const FRASES_DEFAULT = [
   '¡Que los números y el campo te acompañen hoy!',
   '¡Un buen día para mantener todo bajo control!',
   '¡El trabajo constante construye grandes resultados!',
@@ -19,6 +19,17 @@ const FRASES = [
   '¡Buen comienzo es medio camino andado!',
   '¡La organización es la clave del éxito ganadero!',
 ]
+
+function getFrases() {
+  try {
+    const saved = localStorage.getItem('nongatu_frases')
+    if (saved) {
+      const arr = JSON.parse(saved)
+      if (Array.isArray(arr) && arr.length > 0) return arr
+    }
+  } catch {}
+  return FRASES_DEFAULT
+}
 
 const PROXIMAS = [
   { icon: '📊', titulo: 'Reportes avanzados', desc: 'Gráficos históricos por período y cliente' },
@@ -84,6 +95,7 @@ export default function Dashboard({ user, onNavigate }) {
   }
 
   const hoy     = new Date()
+  const FRASES  = getFrases()
   const diaIdx  = hoy.getDate() % FRASES.length
   const frase   = FRASES[diaIdx]
   const fechaStr = hoy.toLocaleDateString('es-PY',{weekday:'long',year:'numeric',month:'long',day:'numeric'})
@@ -122,14 +134,11 @@ export default function Dashboard({ user, onNavigate }) {
         flexWrap:'wrap', gap:8, flexShrink:0
       }}>
         <div>
-          <div style={{fontSize:11,fontWeight:600,opacity:0.7,textTransform:'uppercase',letterSpacing:'1px',marginBottom:3}}>
-            Bienvenida a Ñongatu
+          <div style={{fontSize:22,fontWeight:800,letterSpacing:'-0.3px',marginBottom:4}}>
+            Bienvenida a Ñongatu, {user?.nombre_usuario || ''}
           </div>
-          <div style={{fontSize:18,fontWeight:800,letterSpacing:'-0.3px',marginBottom:2}}>
-            {user?.nombre_usuario || ''}
-          </div>
-          <div style={{fontSize:11,opacity:0.75,marginBottom:2}}>{fechaCap}</div>
-          <div style={{fontSize:11,opacity:0.65,fontStyle:'italic'}}>{frase}</div>
+          <div style={{fontSize:14,opacity:0.8,marginBottom:3}}>{fechaCap}</div>
+          <div style={{fontSize:13,opacity:0.7,fontStyle:'italic'}}>{frase}</div>
         </div>
         <div style={{display:'flex',gap:8}}>
           <button onClick={()=>onNavigate?.('animales')} style={{
@@ -154,10 +163,10 @@ export default function Dashboard({ user, onNavigate }) {
             background:card.bg, borderRadius:12, padding:'14px 16px', color:'#fff',
             boxShadow:'0 4px 12px rgba(0,0,0,0.12)', position:'relative', overflow:'hidden'
           }}>
-            <div style={{position:'absolute',right:12,top:10,fontSize:22,opacity:0.22}}>{card.icon}</div>
-            <div style={{fontSize:10,fontWeight:600,opacity:0.85,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:5}}>{card.label}</div>
-            <div style={{fontSize:18,fontWeight:800,lineHeight:1.2,marginBottom:3,wordBreak:'break-word'}}>{card.value}</div>
-            <div style={{fontSize:10,opacity:0.7}}>{card.sub}</div>
+            <div style={{position:'absolute',right:12,top:10,fontSize:28,opacity:0.22}}>{card.icon}</div>
+            <div style={{fontSize:12,fontWeight:600,opacity:0.85,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:6}}>{card.label}</div>
+            <div style={{fontSize:22,fontWeight:800,lineHeight:1.2,marginBottom:4,wordBreak:'break-word'}}>{card.value}</div>
+            <div style={{fontSize:12,opacity:0.7}}>{card.sub}</div>
           </div>
         ))}
       </div>
@@ -174,8 +183,8 @@ export default function Dashboard({ user, onNavigate }) {
           borderRadius:14, padding:'14px 18px',
           display:'flex', flexDirection:'column', overflow:'hidden'
         }}>
-          <div style={{fontSize:14,fontWeight:700,marginBottom:1,flexShrink:0}}>Animales en pastura</div>
-          <div style={{fontSize:11,color:'var(--text-secondary)',marginBottom:10,flexShrink:0}}>Por especie y categoría</div>
+          <div style={{fontSize:16,fontWeight:700,marginBottom:2,flexShrink:0}}>Animales en pastura</div>
+          <div style={{fontSize:13,color:'var(--text-secondary)',marginBottom:10,flexShrink:0}}>Por especie y categoría</div>
 
           {porEspecie.length === 0 ? (
             <p style={{color:'var(--text-secondary)',fontSize:13,paddingTop:8}}>
@@ -186,22 +195,22 @@ export default function Dashboard({ user, onNavigate }) {
               {/* Barras */}
               <div style={{
                 display:'flex', alignItems:'flex-end', gap:14,
-                height:88, flexShrink:0,
+                height:140, flexShrink:0,
                 paddingBottom:4, borderBottom:'2px solid var(--border)'
               }}>
                 {porEspecie.map((esp,i)=>(
-                  <div key={esp.especie} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3,flex:1,minWidth:44}}>
-                    <div style={{fontSize:10,fontWeight:700,color:ESPECIE_COLORS[i%ESPECIE_COLORS.length]}}>{esp.total}</div>
+                  <div key={esp.especie} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,flex:1,minWidth:52}}>
+                    <div style={{fontSize:13,fontWeight:700,color:ESPECIE_COLORS[i%ESPECIE_COLORS.length]}}>{esp.total}</div>
                     <div style={{
-                      width:'100%', maxWidth:46,
-                      height:`${Math.round((esp.total/maxAnimales)*64)+8}px`,
+                      width:'100%', maxWidth:54,
+                      height:`${Math.round((esp.total/maxAnimales)*100)+12}px`,
                       background:ESPECIE_COLORS[i%ESPECIE_COLORS.length],
-                      borderRadius:'5px 5px 0 0', opacity:0.9,
-                      display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:3
+                      borderRadius:'6px 6px 0 0', opacity:0.9,
+                      display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:4
                     }}>
-                      <span style={{fontSize:12}}>{ESPECIE_ICONS[i%ESPECIE_ICONS.length]}</span>
+                      <span style={{fontSize:16}}>{ESPECIE_ICONS[i%ESPECIE_ICONS.length]}</span>
                     </div>
-                    <div style={{fontSize:10,fontWeight:600,color:'var(--text-secondary)',textAlign:'center',wordBreak:'break-word'}}>{esp.especie}</div>
+                    <div style={{fontSize:12,fontWeight:600,color:'var(--text-secondary)',textAlign:'center',wordBreak:'break-word'}}>{esp.especie}</div>
                   </div>
                 ))}
               </div>
@@ -210,14 +219,14 @@ export default function Dashboard({ user, onNavigate }) {
               <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:6}}>
                 {porEspecie.map((esp,i)=>(
                   <div key={esp.especie}>
-                    <div style={{fontSize:11,fontWeight:700,color:ESPECIE_COLORS[i%ESPECIE_COLORS.length],marginBottom:3}}>
+                    <div style={{fontSize:13,fontWeight:700,color:ESPECIE_COLORS[i%ESPECIE_COLORS.length],marginBottom:4}}>
                       {esp.especie} — {esp.total} cabezas
                     </div>
                     <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
                       {esp.categorias.map(cat=>(
                         <div key={cat.nombre} style={{
                           background:'var(--main-bg,#f9fafb)',border:'1px solid var(--border)',
-                          borderRadius:6, padding:'2px 8px', fontSize:11
+                          borderRadius:6, padding:'3px 10px', fontSize:13
                         }}>
                           <span style={{fontWeight:600}}>{cat.nombre}</span>
                           <span style={{marginLeft:5,color:'var(--text-secondary)'}}>{cat.cant}</span>
@@ -259,7 +268,7 @@ export default function Dashboard({ user, onNavigate }) {
           borderRadius:14, padding:'14px 16px',
           display:'flex', flexDirection:'column', overflow:'hidden'
         }}>
-          <div style={{fontSize:14,fontWeight:700,marginBottom:10,flexShrink:0}}>Actividad reciente</div>
+          <div style={{fontSize:16,fontWeight:700,marginBottom:10,flexShrink:0}}>Actividad reciente</div>
           {recientes.length===0 ? (
             <p style={{color:'var(--text-secondary)',fontSize:13}}>Sin cobros registrados.</p>
           ) : (
@@ -272,13 +281,13 @@ export default function Dashboard({ user, onNavigate }) {
                     background:'var(--main-bg,#f9fafb)',borderRadius:9,
                     padding:'9px 11px',border:'1px solid var(--border)',flexShrink:0
                   }}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
-                      <div style={{fontSize:11,fontWeight:700,color:'var(--text-primary)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'60%'}}>{c.clientes?.nombre_razon_social}</div>
-                      <span style={{background:badge.bg,color:badge.color,borderRadius:10,padding:'1px 7px',fontSize:10,fontWeight:700,flexShrink:0}}>{badge.label}</span>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:3}}>
+                      <div style={{fontSize:13,fontWeight:700,color:'var(--text-primary)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'60%'}}>{c.clientes?.nombre_razon_social}</div>
+                      <span style={{background:badge.bg,color:badge.color,borderRadius:10,padding:'2px 9px',fontSize:12,fontWeight:700,flexShrink:0}}>{badge.label}</span>
                     </div>
-                    <div style={{fontSize:10,color:'var(--text-secondary)',marginBottom:2}}>{periodoLabel(c.periodo)}</div>
-                    <div style={{fontSize:12,fontWeight:600}}>{gs(Number(c.total))} Gs.</div>
-                    {pag > 0 && <div style={{fontSize:10,color:'#10b981'}}>Pagado: {gs(pag)} Gs.</div>}
+                    <div style={{fontSize:12,color:'var(--text-secondary)',marginBottom:2}}>{periodoLabel(c.periodo)}</div>
+                    <div style={{fontSize:14,fontWeight:600}}>{gs(Number(c.total))} Gs.</div>
+                    {pag > 0 && <div style={{fontSize:12,color:'#10b981'}}>Pagado: {gs(pag)} Gs.</div>}
                   </div>
                 )
               })}
