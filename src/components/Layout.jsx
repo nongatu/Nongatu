@@ -1,27 +1,32 @@
 import { useState, useEffect } from 'react'
 
 const NAV = [
-  { key: 'dashboard',     label: 'Inicio' },
-  { key: 'clientes',      label: 'Clientes' },
-  { key: 'animales',      label: 'Animales' },
-  { key: 'cobros',        label: 'Cobros' },
-  { key: 'reportes',      label: 'Reportes' },
-  { key: 'categorias',    label: 'Categorías' },
-  { key: 'usuarios',      label: 'Usuarios' },
-  { key: 'configuracion', label: 'Configuración', adminOnly: true },
+  { key: 'dashboard',  label: 'Inicio' },
+  { key: 'clientes',   label: 'Clientes' },
+  { key: 'animales',   label: 'Animales' },
+  { key: 'cobros',     label: 'Cobros' },
+  { key: 'reportes',   label: 'Reportes' },
+  { key: 'categorias', label: 'Categorías' },
 ]
 
-const ALL_LABELS = { ...Object.fromEntries(NAV.map(n=>[n.key,n.label])), perfil: 'Mi Perfil' }
+const ALL_LABELS = {
+  ...Object.fromEntries(NAV.map(n => [n.key, n.label])),
+  perfil: 'Mi Perfil',
+  configuracion: 'Configuración',
+  usuarios: 'Gestión de usuarios',
+}
 
 export default function Layout({ user, currentPage, onNavigate, onLogout, children }) {
   const [open, setOpen]   = useState(false)
   const [foto, setFoto]   = useState(null)
+  const [logo, setLogo]   = useState(null)
   const perms = user?.permisos || {}
 
-  // Reload photo when page changes (user may have just updated it)
+  // Reload photo and logo when page changes
   useEffect(() => {
     const key = `profile_photo_${user?.nombre_usuario}`
     setFoto(localStorage.getItem(key) || null)
+    setLogo(localStorage.getItem('nongatu_logo') || null)
   }, [currentPage, user?.nombre_usuario])
 
   const getDisplayName = () => {
@@ -36,8 +41,6 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
   }
 
   const canSee = (key) => {
-    const navItem = NAV.find(n => n.key === key)
-    if (navItem?.adminOnly) return user?.rol === 'Administrador'
     if (user?.rol === 'Administrador') return true
     const map = {
       clientes:   'ver_clientes',
@@ -45,7 +48,6 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
       cobros:     'ver_cobros',
       reportes:   'ver_reportes',
       categorias: 'ver_categorias',
-      usuarios:   false,
     }
     return map[key] !== undefined ? (map[key] ? perms[map[key]] : false) : key === 'dashboard'
   }
@@ -59,7 +61,12 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
       <div className={`sidebar-overlay ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
 
       <aside className={`sidebar ${open ? 'open' : ''}`}>
-        <div className="sidebar-title">🐄 ÑONGATU</div>
+        <div className="sidebar-title">
+          {logo
+            ? <img src={logo} alt="Ñongatu" style={{ maxWidth: 180, maxHeight: 48, objectFit: 'contain', display: 'block' }} />
+            : '🐄 ÑONGATU'
+          }
+        </div>
 
         <nav className="sidebar-nav">
           {NAV.filter(n => canSee(n.key)).map(n => (
@@ -72,6 +79,19 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
             </button>
           ))}
         </nav>
+
+        {/* ── Configuración (solo admin, fija encima del perfil) ── */}
+        {user?.rol === 'Administrador' && (
+          <div style={{ padding: '0 8px 6px' }}>
+            <button
+              className={`nav-item ${currentPage === 'configuracion' ? 'active' : ''}`}
+              onClick={() => navigate('configuracion')}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <span style={{ fontSize: 15 }}>⚙️</span> Configuración
+            </button>
+          </div>
+        )}
 
         {/* ── Perfil / Logout ── */}
         <div className="sidebar-logout">
