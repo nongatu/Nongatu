@@ -9,6 +9,7 @@ import Reportes from './components/Reportes.jsx'
 import Usuarios from './components/Usuarios.jsx'
 import Categorias from './components/Categorias.jsx'
 import Perfil from './components/Perfil.jsx'
+import Configuracion, { aplicarFavicon } from './components/Configuracion.jsx'
 
 export default function App() {
   const [user, setUser] = useState(null)
@@ -17,6 +18,9 @@ export default function App() {
   useEffect(() => {
     const saved = localStorage.getItem('nongatu_user')
     if (saved) setUser(JSON.parse(saved))
+    // Aplicar favicon personalizado si existe
+    const fav = localStorage.getItem('nongatu_favicon')
+    if (fav) aplicarFavicon(fav)
   }, [])
 
   const handleLogin = (u) => {
@@ -35,7 +39,7 @@ export default function App() {
   const pages = {
     dashboard: Dashboard, clientes: Clientes, animales: Animales,
     cobros: Cobros, reportes: Reportes, usuarios: Usuarios, categorias: Categorias,
-    perfil: Perfil,
+    perfil: Perfil, configuracion: Configuracion,
   }
   const PageComponent = pages[page] || Dashboard
 
