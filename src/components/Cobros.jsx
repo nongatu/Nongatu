@@ -223,8 +223,17 @@ function calcularCobro(animalesCli, periodo, bajasCli) {
   const finPeriodo = new Date(year, month, 0)
   const diasMes = finPeriodo.getDate()
 
-  // Base: animales activos que ingresaron antes del fin del período
+  // Base: animales activos + bajas/vendidos que tienen fecha_baja (se cobran hasta ese mes inclusive)
   const aptos = animalesCli.filter(a => {
+    if (a.estado === 'baja' || a.estado === 'vendido') {
+      if (!a.fecha_baja) return false
+      const mesBaja = a.fecha_baja.substring(0, 7)
+      if (periodo > mesBaja) return false
+      if (!a.categorias?.cobrable) return false
+      if (new Date(a.fecha_ingreso+'T00:00:00') > finPeriodo) return false
+      if (a.fecha_inicio_cobro && periodo < a.fecha_inicio_cobro.substring(0, 7)) return false
+      return true
+    }
     if (a.estado !== 'activo') return false
     if (!a.categorias?.cobrable) return false
     if (new Date(a.fecha_ingreso+'T00:00:00') > finPeriodo) return false
@@ -267,6 +276,7 @@ function calcularCobro(animalesCli, periodo, bajasCli) {
     // Verificar que el animal ingresó antes del fin del período
     const animal = animalesCli.find(a => a.id === m.animal_id)
     if (!animal) return
+    if (animal.fecha_baja) return  // ya manejado en aptos con fecha_baja directa
     if (!animal.categorias?.cobrable) return
     if (new Date(animal.fecha_ingreso+'T00:00:00') > finPeriodo) return
     if (animal.fecha_inicio_cobro && periodo < animal.fecha_inicio_cobro.substring(0, 7)) return
@@ -345,7 +355,7 @@ export default function Cobros({ user }) {
   useEffect(()=>{
     Promise.all([
       supabase.from('clientes').select('id,nombre_razon_social,ruc').order('nombre_razon_social'),
-      supabase.from('animales').select('id,cliente_id,categoria_id,cantidad,fecha_ingreso,precio,fecha_inicio_cobro,cobrar_proporcional,estado,categorias(nombre,cobrable)').in('estado',['activo','baja']),
+      supabase.from('animales').select('id,cliente_id,categoria_id,cantidad,fecha_ingreso,precio,fecha_inicio_cobro,cobrar_proporcional,estado,fecha_baja,categorias(nombre,cobrable)').in('estado',['activo','baja','vendido']),
       supabase.from('movimientos').select('animal_id,cliente_id,tipo,categoria_anterior_id,cantidad,precio_nuevo,fecha').eq('tipo','baja'),
     ]).then(([{data:cl},{data:an},{data:mv}])=>{ setClientes(cl||[]); setAnimales(an||[]); setMovimientos(mv||[]) })
     cargar()
@@ -724,6 +734,37 @@ export default function Cobros({ user }) {
   const getPagado = c => c.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
   const getSaldo = c => Number(c.total)-getPagado(c)
   const getCreditoAplicado = c => c.pagos?.filter(p=>p.tipo==='credito_adelantado').reduce((s,p)=>s+Number(p.monto),0)||0
+
+  // ── Períodos a los que se aplicó un crédito (con fallback pre-migración) ───────
+  const periodosCredito = (cr) => {
+    // Post-migración: FK credito_id existe → pagos disponibles directamente
+    if (cr.pagos?.length > 0) {
+      return cr.pagos
+        .slice()
+        .sort((a,b) => (a.cobros?.periodo||'').localeCompare(b.cobros?.periodo||''))
+        .map(p => ({ periodo: p.cobros?.periodo, monto: Number(p.monto) }))
+        .filter(p => p.periodo)
+    }
+    // Pre-migración: cruzar con estado de cobros por fecha_pago + tipo + cliente
+    const fechaCrStr = cr.fecha_pago?.substring(0, 10)
+    if (fechaCrStr) {
+      const aplicados = []
+      for (const c of cobros) {
+        if (c.cliente_id !== cr.cliente_id) continue
+        for (const p of (c.pagos || [])) {
+          if (p.tipo === 'credito_adelantado' && p.fecha_pago?.startsWith(fechaCrStr)) {
+            aplicados.push({ periodo: c.periodo, monto: Number(p.monto) })
+          }
+        }
+      }
+      if (aplicados.length > 0) {
+        return aplicados.sort((a,b) => a.periodo.localeCompare(b.periodo))
+      }
+    }
+    // Último recurso: período vinculado al crédito
+    return cr.cobros?.periodo ? [{ periodo: cr.cobros.periodo, monto: Number(cr.monto) }] : []
+  }
+
   const fb = {display:'flex',gap:10,marginBottom:14,flexWrap:'wrap',alignItems:'flex-end'}
 
   const todosSeleccionados = cobrosFiltrados.length > 0 && cobrosFiltrados.every(c => seleccionados.has(c.id))
@@ -987,41 +1028,33 @@ export default function Cobros({ user }) {
                       <td>{gs(cr.monto)} Gs.</td>
                       <td>{new Date(cr.fecha_pago+'T00:00:00').toLocaleDateString('es-PY')}</td>
                       <td>
-                        {cr.pagos?.length > 0 ? (
-                          // Desglose detallado: qué parte fue a cada período
-                          <div style={{display:'flex',flexDirection:'column',gap:3}}>
-                            {cr.pagos
-                              .slice()
-                              .sort((a,b)=>(a.cobros?.periodo||'').localeCompare(b.cobros?.periodo||''))
-                              .map((p,i)=>(
-                                <div key={i} style={{display:'flex',alignItems:'center',gap:6}}>
-                                  <span style={{
-                                    background:'#dbeafe',color:'#1e40af',
-                                    borderRadius:4,padding:'1px 6px',fontSize:11,fontWeight:600,
-                                    whiteSpace:'nowrap'
-                                  }}>{periodoLabel(p.cobros?.periodo||'')}</span>
-                                  <span style={{fontSize:11,fontWeight:600,color:'var(--text-primary)'}}>
-                                    {gs(p.monto)} Gs.
-                                  </span>
-                                </div>
-                              ))
-                            }
-                          </div>
-                        ) : cr.aplicado ? (
-                          // Crédito viejo sin credito_id → muestra último cobro vinculado
-                          <span style={{fontSize:12,color:'var(--text-secondary)'}}>
-                            Aplicado a {periodoLabel(cr.cobros?.periodo||'')}
-                          </span>
-                        ) : cr.periodo_aplicar ? (
-                          // Pendiente con período destino definido
-                          <span style={{fontSize:12}}>
-                            Desde {periodoLabel(cr.periodo_aplicar)}
-                          </span>
-                        ) : (
-                          <span style={{fontSize:12,color:'var(--text-secondary)'}}>
-                            Primer cobro pendiente
-                          </span>
-                        )}
+                        {(() => {
+                          const periodos = periodosCredito(cr)
+                          if (periodos.length > 0 && (cr.aplicado || periodos.length > 1)) {
+                            return (
+                              <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                                {periodos.map((p,i) => (
+                                  <div key={i} style={{display:'flex',alignItems:'center',gap:6}}>
+                                    <span style={{
+                                      background:'#dbeafe',color:'#1e40af',
+                                      borderRadius:4,padding:'1px 6px',fontSize:11,fontWeight:600,
+                                      whiteSpace:'nowrap'
+                                    }}>{periodoLabel(p.periodo||'')}</span>
+                                    <span style={{fontSize:11,fontWeight:600,color:'var(--text-primary)'}}>
+                                      {gs(p.monto)} Gs.
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )
+                          } else if (!cr.aplicado && cr.periodo_aplicar) {
+                            return <span style={{fontSize:12}}>Desde {periodoLabel(cr.periodo_aplicar)}</span>
+                          } else if (!cr.aplicado) {
+                            return <span style={{fontSize:12,color:'var(--text-secondary)'}}>Primer cobro pendiente</span>
+                          } else {
+                            return <span style={{fontSize:12,color:'var(--text-secondary)'}}>Sin datos de período</span>
+                          }
+                        })()}
                       </td>
                       <td>{cr.observacion||'-'}</td>
                       <td><span className={`badge badge-${cr.aplicado?'green':'orange'}`}>{cr.aplicado?'Aplicado':'Pendiente'}</span></td>

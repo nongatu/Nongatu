@@ -30,6 +30,9 @@ export default function Animales({ user }) {
   const [modal, setModal] = useState(null)
   const [editando, setEditando] = useState(null)
   const [modalForm, setModalForm] = useState({})
+  const [tab, setTab] = useState('activos')
+  const [movimientosBajas, setMovimientosBajas] = useState([])
+  const [selMovs, setSelMovs] = useState(new Set())
 
   const perms = user?.rol === 'Administrador' ? { todo: true } : (user?.permisos || {})
   const puedeRegistrar = perms.todo || perms.registrar_animales
@@ -70,6 +73,18 @@ export default function Animales({ user }) {
   }, [clienteSelec])
 
   useEffect(() => { cargarAnimales() }, [cargarAnimales])
+
+  const cargarMovimientosBajas = useCallback(async () => {
+    if (!clienteSelec) { setMovimientosBajas([]); return }
+    const { data } = await supabase.from('movimientos')
+      .select('id, tipo, cantidad, causa, observacion, fecha, animal_id, categoria_anterior_id, animales(id,estado,cantidad), usuarios(nombre_usuario)')
+      .eq('cliente_id', clienteSelec)
+      .in('tipo', ['baja', 'salida'])
+      .order('fecha', { ascending: false })
+    setMovimientosBajas(data || [])
+  }, [clienteSelec])
+
+  useEffect(() => { if (tab === 'bajas') cargarMovimientosBajas() }, [tab, cargarMovimientosBajas])
 
   const clienteOpts = clientes.map(c => ({
     value: c.id, label: c.nombre_razon_social,
@@ -249,12 +264,40 @@ export default function Animales({ user }) {
   cargarAnimales()
 }
 
+  // ── Restaurar bajas / salidas ─────────────────────────────────────────────
+  const restaurarMovimiento = async (movs) => {
+    if (!Array.isArray(movs)) movs = [movs]
+    if (!movs.length) return
+    if (!confirm(`¿Restaurar ${movs.length} movimiento(s)? El animal volverá a estado activo.`)) return
+    setSaving(true); setMsg(null)
+    for (const m of movs) {
+      const animal = m.animales
+      if (!animal) {
+        await supabase.from('movimientos').delete().eq('id', m.id)
+        continue
+      }
+      if (animal.estado === 'baja' || animal.estado === 'vendido') {
+        // Baja / salida total → restaurar estado
+        await supabase.from('animales').update({ estado: 'activo' }).eq('id', animal.id)
+      } else if (animal.estado === 'activo') {
+        // Baja / salida parcial → devolver cantidad
+        await supabase.from('animales').update({ cantidad: animal.cantidad + m.cantidad }).eq('id', animal.id)
+      }
+      await supabase.from('movimientos').delete().eq('id', m.id)
+    }
+    setSelMovs(new Set())
+    setMsg({ type: 'success', text: `${movs.length} movimiento(s) restaurado(s) correctamente.` })
+    cargarAnimales()
+    cargarMovimientosBajas()
+    setSaving(false)
+  }
+
   // ── Salida F8 ─────────────────────────────────────────────────────────────
   const abrirSalida = () => {
-    setModalForm({ categoria_id: '', cantidad: 1 }); setModal('salida')
+    setModalForm({ categoria_id: '', cantidad: 1, fecha_salida: new Date().toISOString().split('T')[0] }); setModal('salida')
   }
   const registrarSalida = async () => {
-    const { categoria_id, cantidad } = modalForm
+    const { categoria_id, cantidad, fecha_salida } = modalForm
     if (!categoria_id || !cantidad) return
     const registros = animales.filter(a => a.categoria_id === parseInt(categoria_id))
       .sort((a, b) => {
@@ -266,10 +309,11 @@ export default function Animales({ user }) {
     const totalDisp = registros.reduce((s, a) => s + a.cantidad, 0)
     if (parseInt(cantidad) > totalDisp) return alert(`Solo hay ${totalDisp} animales.`)
     let restante = parseInt(cantidad)
+    const fechaSalidaVal = fecha_salida || new Date().toISOString().split('T')[0]
     for (const r of registros) {
       if (restante <= 0) break
       const q = Math.min(r.cantidad, restante)
-      if (q === r.cantidad) await supabase.from('animales').update({ estado: 'vendido' }).eq('id', r.id)
+      if (q === r.cantidad) await supabase.from('animales').update({ estado: 'vendido', fecha_baja: fechaSalidaVal }).eq('id', r.id)
       else await supabase.from('animales').update({ cantidad: r.cantidad - q }).eq('id', r.id)
       await supabase.from('movimientos').insert({
         animal_id: r.id, cliente_id: parseInt(clienteSelec), tipo: 'salida',
@@ -301,7 +345,7 @@ export default function Animales({ user }) {
     for (const r of registros) {
       if (restante <= 0) break
       const q = Math.min(r.cantidad, restante)
-      if (q === r.cantidad) await supabase.from('animales').update({ estado: 'baja' }).eq('id', r.id)
+      if (q === r.cantidad) await supabase.from('animales').update({ estado: 'baja', fecha_baja: fecha_baja || new Date().toISOString().split('T')[0] }).eq('id', r.id)
       else await supabase.from('animales').update({ cantidad: r.cantidad - q }).eq('id', r.id)
       await supabase.from('movimientos').insert({
         animal_id: r.id, cliente_id: parseInt(clienteSelec), tipo: 'baja',
@@ -463,8 +507,14 @@ export default function Animales({ user }) {
         </div>
       )}
 
-      {/* Tabla */}
-      <div className="table-container">
+      {/* Tabs */}
+      <div className="tabs">
+        <button className={`tab-btn ${tab==='activos'?'active':''}`} onClick={()=>setTab('activos')}>Animales activos</button>
+        <button className={`tab-btn ${tab==='bajas'?'active':''}`} onClick={()=>setTab('bajas')}>Bajas y Salidas</button>
+      </div>
+
+      {/* Tabla activos */}
+      {tab==='activos'&&<div className="table-container">
         <div className="table-wrapper">
           <table className="table-animales">
             <thead>
@@ -530,7 +580,83 @@ export default function Animales({ user }) {
             </div>
           </div>
         )}
-      </div>
+      </div>}
+
+      {/* Tabla Bajas y Salidas */}
+      {tab==='bajas'&&(
+        <div className="table-container">
+          <div style={{display:'flex',gap:10,marginBottom:12,alignItems:'center',flexWrap:'wrap'}}>
+            {puedeRegistrar&&(
+              <button
+                className="btn btn-orange"
+                onClick={()=>restaurarMovimiento([...selMovs].map(id=>movimientosBajas.find(m=>m.id===id)).filter(Boolean))}
+                disabled={!selMovs.size||saving}
+                style={{opacity:selMovs.size?1:0.4}}
+              >
+                ↩ Restaurar seleccionados{selMovs.size?` (${selMovs.size})`:''}
+              </button>
+            )}
+            <span style={{fontSize:13,color:'var(--text-secondary)'}}>
+              Restaurar devuelve el animal a activo y elimina el registro de baja o salida.
+            </span>
+          </div>
+          <div className="table-wrapper">
+            <table>
+              <thead><tr>
+                {puedeRegistrar&&<th style={{width:36,textAlign:'center'}}>
+                  <input type="checkbox"
+                    checked={movimientosBajas.length>0&&movimientosBajas.every(m=>selMovs.has(m.id))}
+                    onChange={()=>{
+                      const todos=movimientosBajas.every(m=>selMovs.has(m.id))
+                      const n=new Set(selMovs)
+                      if(todos) movimientosBajas.forEach(m=>n.delete(m.id))
+                      else movimientosBajas.forEach(m=>n.add(m.id))
+                      setSelMovs(n)
+                    }}
+                    style={{cursor:'pointer'}}
+                  />
+                </th>}
+                <th>Tipo</th><th>Categoría</th><th>Cant.</th><th>Fecha</th><th>Causa / Obs.</th><th>Estado animal</th><th>Usuario</th>
+                {puedeRegistrar&&<th>Acción</th>}
+              </tr></thead>
+              <tbody>
+                {movimientosBajas.length===0
+                  ?<tr><td colSpan={puedeRegistrar?9:8} className="table-empty">
+                    {clienteSelec?'Sin bajas ni salidas para este cliente.':'Seleccioná un cliente.'}
+                  </td></tr>
+                  :movimientosBajas.map(m=>{
+                    const selec=selMovs.has(m.id)
+                    const catNombre=categorias.find(c=>c.id===m.categoria_anterior_id)?.nombre||'-'
+                    const animalEstado=m.animales?.estado
+                    return(
+                    <tr key={m.id} style={{background:selec?'#eff6ff':''}}>
+                      {puedeRegistrar&&<td style={{textAlign:'center'}}>
+                        <input type="checkbox" checked={selec}
+                          onChange={()=>{const n=new Set(selMovs);n.has(m.id)?n.delete(m.id):n.add(m.id);setSelMovs(n)}}
+                          style={{cursor:'pointer'}}
+                        />
+                      </td>}
+                      <td><span className={`badge badge-${m.tipo==='baja'?'red':'orange'}`}>{m.tipo==='baja'?'Baja':'Salida'}</span></td>
+                      <td>{catNombre}</td>
+                      <td style={{textAlign:'center',fontWeight:700}}>{m.cantidad}</td>
+                      <td>{m.fecha?new Date(m.fecha).toLocaleDateString('es-PY'):'-'}</td>
+                      <td style={{fontSize:12}}>{m.causa||'-'}{m.observacion?` — ${m.observacion}`:''}</td>
+                      <td>
+                        {animalEstado
+                          ?<span className={`badge badge-${animalEstado==='activo'?'green':animalEstado==='baja'?'red':'orange'}`}>{animalEstado}</span>
+                          :<span style={{color:'var(--text-secondary)',fontSize:12}}>—</span>}
+                      </td>
+                      <td>{m.usuarios?.nombre_usuario||'-'}</td>
+                      {puedeRegistrar&&<td>
+                        <button className="btn btn-orange btn-sm" onClick={()=>restaurarMovimiento([m])}>↩ Restaurar</button>
+                      </td>}
+                    </tr>
+                  )})}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Modal Salida */}
       {modal === 'salida' && (
@@ -545,10 +671,15 @@ export default function Animales({ user }) {
               onChange={v => setModalForm({ ...modalForm, categoria_id: v })}
               placeholder="Seleccionar categoría..." />
           </div>
-          <div className="form-group" style={{ marginBottom: 20 }}>
+          <div className="form-group" style={{ marginBottom: 14 }}>
             <label>Cantidad a vender *</label>
             <input type="number" min="1" value={modalForm.cantidad}
               onChange={e => setModalForm({ ...modalForm, cantidad: e.target.value })} />
+          </div>
+          <div className="form-group" style={{ marginBottom: 20 }}>
+            <label>Fecha de salida *</label>
+            <input type="date" value={modalForm.fecha_salida}
+              onChange={e => setModalForm({ ...modalForm, fecha_salida: e.target.value })} />
           </div>
           <div className="modal-footer">
             <button className="btn btn-outline" onClick={() => setModal(null)}>Cancelar</button>
