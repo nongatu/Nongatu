@@ -21,7 +21,7 @@ const FRASES_DEFAULT = [
   '¡La organización es la clave del éxito ganadero!',
 ]
 
-// ── Gráfico de línea SVG (ingresos por mes) ───────────────────────────────────
+// ── Gráfico de línea SVG ──────────────────────────────────────────────────────
 function LineChart({ data }) {
   if (!data || data.length < 2) {
     return (
@@ -66,7 +66,7 @@ function LineChart({ data }) {
   )
 }
 
-// ── Gráfico de barras placeholder (cosecha pepinos) ───────────────────────────
+// ── Gráfico de barras placeholder ─────────────────────────────────────────────
 function CosechaChart() {
   const BARS = [
     { label: 'Oct', val: 55 }, { label: 'Nov', val: 70 }, { label: 'Dic', val: 45 },
@@ -92,14 +92,14 @@ function CosechaChart() {
 }
 
 export default function Dashboard({ user, onNavigate }) {
-  const [stats, setStats]          = useState({ animales: 0, clientes: 0, cobrado: 0, pendiente: 0 })
-  const [porEspecie, setPorEspecie] = useState([])
-  const [recientes, setRecientes]  = useState([])
+  const [stats, setStats]           = useState({ animales: 0, clientes: 0, cobrado: 0, pendiente: 0 })
+  const [porEspecie, setPorEspecie]  = useState([])
+  const [recientes, setRecientes]   = useState([])
   const [mesesChart, setMesesChart] = useState([])
-  const [ventasMes, setVentasMes]  = useState(0)
-  const [loading, setLoading]      = useState(true)
+  const [ventasMes, setVentasMes]   = useState(0)
+  const [loading, setLoading]       = useState(true)
 
-  // Checklist local
+  // Checklist
   const [checklist, setChecklist] = useState(() => {
     try { return JSON.parse(localStorage.getItem('nongatu_checklist') || '[]') } catch { return [] }
   })
@@ -120,7 +120,7 @@ export default function Dashboard({ user, onNavigate }) {
         supabase.from('cobros')
           .select('id,periodo,estado,total,cliente_id,clientes(nombre_razon_social),pagos(monto)')
           .order('id', { ascending: false })
-          .limit(5),
+          .limit(4),
       ])
 
       const animales  = animalesRes.data?.reduce((s, a) => s + Number(a.cantidad), 0) || 0
@@ -246,7 +246,7 @@ export default function Dashboard({ user, onNavigate }) {
         </div>
       </div>
 
-      {/* ── Stat cards ── */}
+      {/* ── Stat cards (4 iguales) ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, flexShrink: 0 }}>
         {CARDS.map(card => (
           <div key={card.label} style={{ background: card.bg, borderRadius: 12, padding: '14px 16px', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.12)', position: 'relative', overflow: 'hidden' }}>
@@ -258,10 +258,10 @@ export default function Dashboard({ user, onNavigate }) {
         ))}
       </div>
 
-      {/* ── Cuerpo: 3 columnas ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 210px 290px', gap: 10, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {/* ── Cuerpo: 2fr | 1fr | 1fr  (alineado con las 4 cards) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
-        {/* ── COL IZQUIERDA: Animales en pastura + Resumen de producción ── */}
+        {/* ── COL IZQUIERDA (50%): Animales + Resumen de producción ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0, overflow: 'hidden' }}>
 
           {/* Animales en pastura */}
@@ -322,7 +322,7 @@ export default function Dashboard({ user, onNavigate }) {
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               <LineChart data={mesesChart} />
             </div>
-            <div style={{ display: 'flex', gap: 20, marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 24, marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)', flexShrink: 0 }}>
               <div>
                 <div style={{ fontSize: 10, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Ventas del mes</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: '#2563eb' }}>{gs(ventasMes)} Gs.</div>
@@ -335,37 +335,44 @@ export default function Dashboard({ user, onNavigate }) {
           </div>
         </div>
 
-        {/* ── COL CENTRAL: Checklist Próximamente + Cosecha pepinos ── */}
+        {/* ── COL CENTRAL (25%): Tareas pendientes + Cosecha pepinos ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0, overflow: 'hidden' }}>
 
-          {/* Próximamente + checklist */}
+          {/* Tareas pendientes (checklist circular) */}
           <div style={{ background: 'var(--card-bg,#fff)', border: '1px solid var(--border)', borderRadius: 14, padding: '13px 14px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, flexShrink: 0 }}>Próximamente</div>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, flexShrink: 0 }}>Tareas pendientes</div>
             {/* Input nueva tarea */}
             <div style={{ display: 'flex', gap: 5, marginBottom: 8, flexShrink: 0 }}>
               <input
                 value={nuevoItem}
                 onChange={e => setNuevoItem(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && agregarItem()}
-                placeholder="Agregar ítem..."
+                placeholder="Agregar tarea..."
                 style={{ flex: 1, fontSize: 12, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--main-bg,#f9fafb)', color: 'var(--text-primary)', outline: 'none' }}
               />
               <button onClick={agregarItem} style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 16, flexShrink: 0, lineHeight: 1 }}>+</button>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
               {checklist.length === 0 ? (
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', padding: '18px 0', lineHeight: 1.6 }}>
-                  Sin ítems aún.<br />Agregá funciones que<br />vendrán pronto.
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', padding: '16px 0', lineHeight: 1.7 }}>
+                  Sin tareas aún.<br />Agregá lo que tenés<br />pendiente hoy.
                 </div>
               ) : checklist.map(item => (
-                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 8px', background: 'var(--main-bg,#f9fafb)', borderRadius: 7, border: '1px solid var(--border)' }}>
-                  <input
-                    type="checkbox"
-                    checked={item.hecho}
-                    onChange={() => toggleItem(item.id)}
-                    style={{ flexShrink: 0, cursor: 'pointer', accentColor: '#2563eb', width: 14, height: 14 }}
-                  />
-                  <span style={{ flex: 1, fontSize: 12, textDecoration: item.hecho ? 'line-through' : 'none', color: item.hecho ? 'var(--text-secondary)' : 'var(--text-primary)', wordBreak: 'break-word' }}>
+                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', background: 'var(--main-bg,#f9fafb)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  {/* Checkbox circular */}
+                  <div
+                    onClick={() => toggleItem(item.id)}
+                    style={{
+                      width: 18, height: 18, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
+                      border: `2px solid ${item.hecho ? '#2563eb' : '#d1d5db'}`,
+                      background: item.hecho ? '#2563eb' : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {item.hecho && <span style={{ color: '#fff', fontSize: 10, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                  </div>
+                  <span style={{ flex: 1, fontSize: 12, textDecoration: item.hecho ? 'line-through' : 'none', color: item.hecho ? 'var(--text-secondary)' : 'var(--text-primary)', wordBreak: 'break-word', lineHeight: 1.4 }}>
                     {item.texto}
                   </span>
                   <button onClick={() => eliminarItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-secondary)', flexShrink: 0, padding: '1px 3px', lineHeight: 1 }} title="Eliminar">✕</button>
@@ -384,48 +391,52 @@ export default function Dashboard({ user, onNavigate }) {
           </div>
         </div>
 
-        {/* ── COL DERECHA: Actividad reciente ── */}
+        {/* ── COL DERECHA (25%): Actividad reciente ── */}
         <div style={{ background: 'var(--card-bg,#fff)', border: '1px solid var(--border)', borderRadius: 14, padding: '13px 14px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, flexShrink: 0 }}>Actividad reciente</div>
 
           {/* Placeholders próximamente */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10, flexShrink: 0 }}>
-            <div style={{ background: 'linear-gradient(135deg,#f97316,#ea580c)', borderRadius: 10, padding: '10px 12px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>🥒 Venta de pepinillos</div>
-                <div style={{ fontSize: 10, opacity: 0.75 }}>Módulo próximamente</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12, flexShrink: 0 }}>
+            <div style={{ background: 'linear-gradient(135deg,#f97316,#ea580c)', borderRadius: 11, padding: '13px 14px', color: '#fff' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>🥒 Venta de pepinillos</div>
+                  <div style={{ fontSize: 11, opacity: 0.8 }}>Módulo próximamente</div>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.22)', borderRadius: 8, padding: '3px 8px', flexShrink: 0 }}>—</span>
               </div>
-              <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.2)', borderRadius: 8, padding: '2px 8px' }}>—</span>
             </div>
-            <div style={{ background: 'linear-gradient(135deg,#10b981,#059669)', borderRadius: 10, padding: '10px 12px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>💸 Pago a proveedor</div>
-                <div style={{ fontSize: 10, opacity: 0.75 }}>Módulo próximamente</div>
+            <div style={{ background: 'linear-gradient(135deg,#10b981,#059669)', borderRadius: 11, padding: '13px 14px', color: '#fff' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>💸 Pago a proveedor</div>
+                  <div style={{ fontSize: 11, opacity: 0.8 }}>Módulo próximamente</div>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.22)', borderRadius: 8, padding: '3px 8px', flexShrink: 0 }}>—</span>
               </div>
-              <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.2)', borderRadius: 8, padding: '2px 8px' }}>—</span>
             </div>
           </div>
 
           {/* Separador */}
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8, flexShrink: 0 }}>Cobros recientes</div>
 
-          {/* Cobros recientes */}
+          {/* Últimos 4 cobros — sin scroll */}
           {recientes.length === 0 ? (
             <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Sin cobros registrados.</p>
           ) : (
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               {recientes.map(c => {
                 const pag   = c.pagos?.reduce((s, p) => s + Number(p.monto), 0) || 0
                 const badge = estadoBadge(c.estado)
                 return (
-                  <div key={c.id} style={{ background: 'var(--main-bg,#f9fafb)', borderRadius: 9, padding: '9px 11px', border: '1px solid var(--border)', flexShrink: 0 }}>
+                  <div key={c.id} style={{ background: 'var(--main-bg,#f9fafb)', borderRadius: 9, padding: '9px 11px', border: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{c.clientes?.nombre_razon_social}</div>
-                      <span style={{ background: badge.bg, color: badge.color, borderRadius: 10, padding: '2px 9px', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{badge.label}</span>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '58%' }}>{c.clientes?.nombre_razon_social}</div>
+                      <span style={{ background: badge.bg, color: badge.color, borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{badge.label}</span>
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 2 }}>{periodoLabel(c.periodo)}</div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>{gs(Number(c.total))} Gs.</div>
-                    {pag > 0 && <div style={{ fontSize: 12, color: '#10b981' }}>Pagado: {gs(pag)} Gs.</div>}
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>{periodoLabel(c.periodo)}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{gs(Number(c.total))} Gs.</div>
+                    {pag > 0 && <div style={{ fontSize: 11, color: '#10b981' }}>Pagado: {gs(pag)} Gs.</div>}
                   </div>
                 )
               })}
