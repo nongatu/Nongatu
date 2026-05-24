@@ -119,6 +119,16 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
       </aside>
 
       <div className="main-content">
+        {/* Topbar móvil — solo visible en pantallas chicas */}
+        <div className="mobile-topbar">
+          <button className="mobile-menu-btn" onClick={() => setOpen(true)}>
+            <span /><span /><span />
+          </button>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+            {ALL_LABELS[currentPage] || 'Ñongatu'}
+          </div>
+          <div style={{ width: 36 }} />
+        </div>
         <div className="page-content">{children}</div>
       </div>
     </div>
