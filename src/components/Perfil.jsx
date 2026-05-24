@@ -3,22 +3,24 @@ import { supabase } from '../supabase'
 
 const PERFIL_VACIO = { nombre: '', segundo_nombre: '', apellido: '', apodo: '', telefono: '', email: '' }
 
-function cargarPerfil(username) {
-  try {
-    const saved = localStorage.getItem(`profile_data_${username}`)
-    if (saved) {
-      const p = JSON.parse(saved)
-      // Migración: si tenía nombre_completo pero no tiene los nuevos campos, ignorar (que llene de nuevo)
-      return {
-        nombre:         p.nombre         ?? '',
-        segundo_nombre: p.segundo_nombre ?? '',
-        apellido:       p.apellido       ?? '',
-        apodo:          p.apodo          ?? '',
-        telefono:       p.telefono       ?? '',
-        email:          p.email          ?? '',
-      }
+function cargarPerfil(user) {
+  // Primero desde Supabase (campo perfil del usuario), luego localStorage como fallback
+  const fuente = user?.perfil || (() => {
+    try {
+      const saved = localStorage.getItem(`profile_data_${user?.nombre_usuario}`)
+      return saved ? JSON.parse(saved) : null
+    } catch { return null }
+  })()
+  if (fuente) {
+    return {
+      nombre:         fuente.nombre         ?? '',
+      segundo_nombre: fuente.segundo_nombre ?? '',
+      apellido:       fuente.apellido       ?? '',
+      apodo:          fuente.apodo          ?? '',
+      telefono:       fuente.telefono       ?? '',
+      email:          fuente.email          ?? '',
     }
-  } catch {}
+  }
   return { ...PERFIL_VACIO }
 }
 
@@ -27,7 +29,7 @@ export default function Perfil({ user, onUpdateUser }) {
     user?.foto_url || localStorage.getItem(`profile_photo_${user?.nombre_usuario}`) || null
   )
   const [uploading, setUploading] = useState(false)
-  const [perfil, setPerfil] = useState(() => cargarPerfil(user?.nombre_usuario))
+  const [perfil, setPerfil] = useState(() => cargarPerfil(user))
   const [pass,     setPass]    = useState({ actual: '', nueva: '', confirmar: '' })
   const [showPass, setShowPass]= useState({ actual: false, nueva: false, confirmar: false })
   const [msg,    setMsg]    = useState(null)
@@ -98,8 +100,18 @@ export default function Perfil({ user, onUpdateUser }) {
   }
 
   // ── Guardar datos ─────────────────────────────────────────────────────────
-  const guardarPerfil = () => {
+  const guardarPerfil = async () => {
+    const { error } = await supabase
+      .from('usuarios')
+      .update({ perfil })
+      .eq('id', user.id)
+    if (error) {
+      showMsg('error', 'Error al guardar el perfil.')
+      return
+    }
+    // También guardar en localStorage como caché
     localStorage.setItem(`profile_data_${user?.nombre_usuario}`, JSON.stringify(perfil))
+    if (onUpdateUser) onUpdateUser({ ...user, perfil })
     showMsg('success', 'Perfil actualizado correctamente.')
   }
 
