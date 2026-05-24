@@ -100,12 +100,15 @@ export default function Dashboard({ user, onNavigate }) {
   const [loading, setLoading]       = useState(true)
 
   // Checklist
-  const [checklist, setChecklist] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('nongatu_checklist') || '[]') } catch { return [] }
-  })
+  const puedeVerTareas = user?.rol === 'Administrador' || !!user?.permisos?.ver_tareas
+  const [checklist, setChecklist] = useState([])
   const [nuevoItem, setNuevoItem] = useState('')
 
   useEffect(() => { cargar() }, [])
+
+  useEffect(() => {
+    if (puedeVerTareas) cargarTareas()
+  }, [puedeVerTareas])
 
   const cargar = async () => {
     setLoading(true)
@@ -171,23 +174,24 @@ export default function Dashboard({ user, onNavigate }) {
     setLoading(false)
   }
 
-  // Checklist helpers
-  const agregarItem = () => {
+  // Checklist — Supabase
+  const cargarTareas = async () => {
+    const { data } = await supabase.from('tareas').select('*').order('created_at')
+    setChecklist(data || [])
+  }
+  const agregarItem = async () => {
     if (!nuevoItem.trim()) return
-    const newList = [...checklist, { id: Date.now(), texto: nuevoItem.trim(), hecho: false }]
-    setChecklist(newList)
-    localStorage.setItem('nongatu_checklist', JSON.stringify(newList))
+    const { data } = await supabase.from('tareas').insert({ texto: nuevoItem.trim(), hecha: false }).select().single()
+    if (data) setChecklist(prev => [...prev, data])
     setNuevoItem('')
   }
-  const toggleItem = (id) => {
-    const newList = checklist.map(i => i.id === id ? { ...i, hecho: !i.hecho } : i)
-    setChecklist(newList)
-    localStorage.setItem('nongatu_checklist', JSON.stringify(newList))
+  const toggleItem = async (id, hecha) => {
+    await supabase.from('tareas').update({ hecha: !hecha }).eq('id', id)
+    setChecklist(prev => prev.map(i => i.id === id ? { ...i, hecha: !i.hecha } : i))
   }
-  const eliminarItem = (id) => {
-    const newList = checklist.filter(i => i.id !== id)
-    setChecklist(newList)
-    localStorage.setItem('nongatu_checklist', JSON.stringify(newList))
+  const eliminarItem = async (id) => {
+    await supabase.from('tareas').delete().eq('id', id)
+    setChecklist(prev => prev.filter(i => i.id !== id))
   }
 
   const hoy   = new Date()
@@ -339,6 +343,7 @@ export default function Dashboard({ user, onNavigate }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0, overflow: 'hidden' }}>
 
           {/* Tareas pendientes (checklist circular) */}
+          {puedeVerTareas && (
           <div style={{ background: 'var(--card-bg,#fff)', border: '1px solid var(--border)', borderRadius: 14, padding: '13px 14px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, flexShrink: 0 }}>Tareas pendientes</div>
             {/* Input nueva tarea */}
@@ -361,18 +366,18 @@ export default function Dashboard({ user, onNavigate }) {
                 <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', background: 'var(--main-bg,#f9fafb)', borderRadius: 8, border: '1px solid var(--border)' }}>
                   {/* Checkbox circular */}
                   <div
-                    onClick={() => toggleItem(item.id)}
+                    onClick={() => toggleItem(item.id, item.hecha)}
                     style={{
                       width: 18, height: 18, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
-                      border: `2px solid ${item.hecho ? '#2563eb' : '#d1d5db'}`,
-                      background: item.hecho ? '#2563eb' : 'transparent',
+                      border: `2px solid ${item.hecha ? '#2563eb' : '#d1d5db'}`,
+                      background: item.hecha ? '#2563eb' : 'transparent',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'all 0.15s',
                     }}
                   >
-                    {item.hecho && <span style={{ color: '#fff', fontSize: 10, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                    {item.hecha && <span style={{ color: '#fff', fontSize: 10, fontWeight: 700, lineHeight: 1 }}>✓</span>}
                   </div>
-                  <span style={{ flex: 1, fontSize: 12, textDecoration: item.hecho ? 'line-through' : 'none', color: item.hecho ? 'var(--text-secondary)' : 'var(--text-primary)', wordBreak: 'break-word', lineHeight: 1.4 }}>
+                  <span style={{ flex: 1, fontSize: 12, textDecoration: item.hecha ? 'line-through' : 'none', color: item.hecha ? 'var(--text-secondary)' : 'var(--text-primary)', wordBreak: 'break-word', lineHeight: 1.4 }}>
                     {item.texto}
                   </span>
                   <button onClick={() => eliminarItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-secondary)', flexShrink: 0, padding: '1px 3px', lineHeight: 1 }} title="Eliminar">✕</button>
@@ -380,6 +385,7 @@ export default function Dashboard({ user, onNavigate }) {
               ))}
             </div>
           </div>
+          )}
 
           {/* Cosecha pepinos */}
           <div style={{ background: 'var(--card-bg,#fff)', border: '1px solid var(--border)', borderRadius: 14, padding: '13px 14px', flexShrink: 0 }}>

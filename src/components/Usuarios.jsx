@@ -56,6 +56,7 @@ const PERMS_SECTIONS = [
     color: '#dc2626',
     perms: [
       { key: 'eliminar_anular', label: 'Eliminar y anular registros (clientes, animales, cobros)' },
+      { key: 'ver_tareas',      label: 'Ver y gestionar tareas pendientes en el dashboard' },
     ],
   },
 ]
