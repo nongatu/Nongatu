@@ -103,6 +103,7 @@ export default function Dashboard({ user, onNavigate }) {
   const puedeVerTareas = user?.rol === 'Administrador' || !!user?.permisos?.ver_tareas
   const [checklist, setChecklist] = useState([])
   const [nuevoItem, setNuevoItem] = useState('')
+  const [nuevaVis, setNuevaVis]   = useState('admin')
 
   useEffect(() => { cargar() }, [])
 
@@ -177,13 +178,20 @@ export default function Dashboard({ user, onNavigate }) {
   // Checklist — Supabase
   const cargarTareas = async () => {
     const { data } = await supabase.from('tareas').select('*').order('created_at')
-    setChecklist(data || [])
+    // Admins ven todas; usuarios con ver_tareas solo ven las de visibilidad 'todos'
+    const filtradas = (data || []).filter(t =>
+      user?.rol === 'Administrador' || t.visibilidad === 'todos'
+    )
+    setChecklist(filtradas)
   }
   const agregarItem = async () => {
     if (!nuevoItem.trim()) return
-    const { data } = await supabase.from('tareas').insert({ texto: nuevoItem.trim(), hecha: false }).select().single()
+    const { data } = await supabase.from('tareas')
+      .insert({ texto: nuevoItem.trim(), hecha: false, visibilidad: nuevaVis })
+      .select().single()
     if (data) setChecklist(prev => [...prev, data])
     setNuevoItem('')
+    setNuevaVis('admin')
   }
   const toggleItem = async (id, hecha) => {
     await supabase.from('tareas').update({ hecha: !hecha }).eq('id', id)
@@ -347,15 +355,27 @@ export default function Dashboard({ user, onNavigate }) {
           <div style={{ background: 'var(--card-bg,#fff)', border: '1px solid var(--border)', borderRadius: 14, padding: '13px 14px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, flexShrink: 0 }}>Tareas pendientes</div>
             {/* Input nueva tarea */}
-            <div style={{ display: 'flex', gap: 5, marginBottom: 8, flexShrink: 0 }}>
-              <input
-                value={nuevoItem}
-                onChange={e => setNuevoItem(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && agregarItem()}
-                placeholder="Agregar tarea..."
-                style={{ flex: 1, fontSize: 12, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--main-bg,#f9fafb)', color: 'var(--text-primary)', outline: 'none' }}
-              />
-              <button onClick={agregarItem} style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 16, flexShrink: 0, lineHeight: 1 }}>+</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 8, flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 5 }}>
+                <input
+                  value={nuevoItem}
+                  onChange={e => setNuevoItem(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && agregarItem()}
+                  placeholder="Agregar tarea..."
+                  style={{ flex: 1, fontSize: 12, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--main-bg,#f9fafb)', color: 'var(--text-primary)', outline: 'none' }}
+                />
+                <button onClick={agregarItem} style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 16, flexShrink: 0, lineHeight: 1 }}>+</button>
+              </div>
+              {user?.rol === 'Administrador' && (
+                <select
+                  value={nuevaVis}
+                  onChange={e => setNuevaVis(e.target.value)}
+                  style={{ fontSize: 11, padding: '3px 6px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--main-bg,#f9fafb)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                >
+                  <option value="admin">Solo administradores</option>
+                  <option value="todos">Todos (usuarios con permiso)</option>
+                </select>
+              )}
             </div>
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
               {checklist.length === 0 ? (
@@ -379,6 +399,9 @@ export default function Dashboard({ user, onNavigate }) {
                   </div>
                   <span style={{ flex: 1, fontSize: 12, textDecoration: item.hecha ? 'line-through' : 'none', color: item.hecha ? 'var(--text-secondary)' : 'var(--text-primary)', wordBreak: 'break-word', lineHeight: 1.4 }}>
                     {item.texto}
+                    {user?.rol === 'Administrador' && item.visibilidad === 'todos' && (
+                      <span style={{ marginLeft: 5, fontSize: 9, background: '#e0f2fe', color: '#0369a1', borderRadius: 4, padding: '1px 4px', fontWeight: 600 }}>Todos</span>
+                    )}
                   </span>
                   <button onClick={() => eliminarItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-secondary)', flexShrink: 0, padding: '1px 3px', lineHeight: 1 }} title="Eliminar">✕</button>
                 </div>
