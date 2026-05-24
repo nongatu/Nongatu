@@ -17,15 +17,11 @@ const ALL_LABELS = {
 
 export default function Layout({ user, currentPage, onNavigate, onLogout, children }) {
   const [open, setOpen]   = useState(false)
-  const [foto, setFoto]   = useState(null)
   const [logoOk, setLogoOk] = useState(true)
   const perms = user?.permisos || {}
 
-  // Reload photo when page changes
-  useEffect(() => {
-    const key = `profile_photo_${user?.nombre_usuario}`
-    setFoto(localStorage.getItem(key) || null)
-  }, [currentPage, user?.nombre_usuario])
+  // Foto: primero desde Supabase (foto_url), luego localStorage como fallback
+  const foto = user?.foto_url || localStorage.getItem(`profile_photo_${user?.nombre_usuario}`) || null
 
   const getDisplayName = () => {
     try {

@@ -22,10 +22,11 @@ function cargarPerfil(username) {
   return { ...PERFIL_VACIO }
 }
 
-export default function Perfil({ user }) {
+export default function Perfil({ user, onUpdateUser }) {
   const [foto, setFoto] = useState(() =>
-    localStorage.getItem(`profile_photo_${user?.nombre_usuario}`) || null
+    user?.foto_url || localStorage.getItem(`profile_photo_${user?.nombre_usuario}`) || null
   )
+  const [uploading, setUploading] = useState(false)
   const [perfil, setPerfil] = useState(() => cargarPerfil(user?.nombre_usuario))
   const [pass,     setPass]    = useState({ actual: '', nueva: '', confirmar: '' })
   const [showPass, setShowPass]= useState({ actual: false, nueva: false, confirmar: false })
@@ -54,6 +55,7 @@ export default function Perfil({ user }) {
   const handleFoto = (e) => {
     const file = e.target.files[0]
     if (!file) return
+    setUploading(true)
     const reader = new FileReader()
     reader.onload = (ev) => {
       const img = new Image()
@@ -64,17 +66,34 @@ export default function Perfil({ user }) {
         canvas.width  = Math.round(img.width  * scale)
         canvas.height = Math.round(img.height * scale)
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
-        const base64 = canvas.toDataURL('image/jpeg', 0.82)
-        localStorage.setItem(`profile_photo_${user?.nombre_usuario}`, base64)
-        setFoto(base64)
+        canvas.toBlob(async (blob) => {
+          const fileName = `${user.id}_${Date.now()}.jpg`
+          const { error: upErr } = await supabase.storage
+            .from('avatars')
+            .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true })
+          if (upErr) {
+            showMsg('error', 'Error al subir la foto. Verificá que el bucket "avatars" esté creado en Supabase.')
+            setUploading(false)
+            return
+          }
+          const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName)
+          await supabase.from('usuarios').update({ foto_url: publicUrl }).eq('id', user.id)
+          setFoto(publicUrl)
+          localStorage.setItem(`profile_photo_${user?.nombre_usuario}`, publicUrl)
+          if (onUpdateUser) onUpdateUser({ ...user, foto_url: publicUrl })
+          showMsg('success', 'Foto actualizada. Ya se verá en todos los dispositivos.')
+          setUploading(false)
+        }, 'image/jpeg', 0.82)
       }
       img.src = ev.target.result
     }
     reader.readAsDataURL(file)
   }
 
-  const eliminarFoto = () => {
+  const eliminarFoto = async () => {
+    await supabase.from('usuarios').update({ foto_url: null }).eq('id', user.id)
     localStorage.removeItem(`profile_photo_${user?.nombre_usuario}`)
+    if (onUpdateUser) onUpdateUser({ ...user, foto_url: null })
     setFoto(null)
   }
 
@@ -154,8 +173,8 @@ export default function Perfil({ user }) {
             @{user?.nombre_usuario} · {user?.rol}
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button className="btn btn-blue btn-sm" onClick={() => fileRef.current?.click()}>
-              Cambiar foto
+            <button className="btn btn-blue btn-sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+              {uploading ? 'Subiendo...' : 'Cambiar foto'}
             </button>
             {foto && (
               <button className="btn btn-outline btn-sm" onClick={eliminarFoto}>Quitar</button>
