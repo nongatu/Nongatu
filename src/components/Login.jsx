@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { supabase } from '../supabase'
 
 export default function Login({ onLogin }) {
-  const [form, setForm] = useState({ usuario: '', password: '' })
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [logo] = useState(() => localStorage.getItem('nongatu_logo') || null)
+  const [form, setForm]         = useState({ usuario: '', password: '' })
+  const [error, setError]       = useState('')
+  const [loading, setLoading]   = useState(false)
   const [showPass, setShowPass] = useState(false)
+  // Si el logo público no existe, cae al texto
+  const [logoOk, setLogoOk]     = useState(true)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -36,13 +37,23 @@ export default function Login({ onLogin }) {
     <div className="login-page">
       <div className="login-box">
         <div className="login-logo">
-          {logo
-            ? <img src={logo} alt="Ñongatu" style={{ maxWidth: 210, maxHeight: 80, objectFit: 'contain', display: 'block', margin: '0 auto 10px' }} />
+          {/* Logo desde carpeta public/ — siempre visible para todos */}
+          {logoOk
+            ? (
+              <img
+                src="/nongatu-logo.png"
+                alt="Ñongatu"
+                onError={() => setLogoOk(false)}
+                style={{ maxWidth: 260, maxHeight: 100, objectFit: 'contain', display: 'block', margin: '0 auto 6px' }}
+              />
+            )
             : <h1>ÑONGATU</h1>
           }
           <p>Sistema de gestión de pasturas</p>
         </div>
+
         {error && <div className="alert alert-error">{error}</div>}
+
         <form onSubmit={handleSubmit}>
           <div className="form-group" style={{ marginBottom: 14 }}>
             <label>Usuario</label>
@@ -69,7 +80,9 @@ export default function Login({ onLogin }) {
                 type="button"
                 onClick={() => setShowPass(p => !p)}
                 style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, padding: '2px 4px' }}
-              >{showPass ? 'Ocultar' : 'Mostrar'}</button>
+              >
+                {showPass ? 'Ocultar' : 'Mostrar'}
+              </button>
             </div>
           </div>
           <button className="btn btn-blue" style={{ width: '100%', justifyContent: 'center', padding: '11px' }} disabled={loading}>
