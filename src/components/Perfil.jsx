@@ -27,7 +27,8 @@ export default function Perfil({ user }) {
     localStorage.getItem(`profile_photo_${user?.nombre_usuario}`) || null
   )
   const [perfil, setPerfil] = useState(() => cargarPerfil(user?.nombre_usuario))
-  const [pass,   setPass]   = useState({ actual: '', nueva: '', confirmar: '' })
+  const [pass,     setPass]    = useState({ actual: '', nueva: '', confirmar: '' })
+  const [showPass, setShowPass]= useState({ actual: false, nueva: false, confirmar: false })
   const [msg,    setMsg]    = useState(null)
   const fileRef             = useRef()
 
@@ -252,15 +253,42 @@ export default function Perfil({ user }) {
         <div className="form-grid">
           <div className="form-group">
             <label>Contraseña actual</label>
-            <input type="password" value={pass.actual} onChange={e => setPass(p => ({ ...p, actual: e.target.value }))} />
+            <div style={{ position: 'relative' }}>
+              <input type={showPass.actual ? 'text' : 'password'} value={pass.actual}
+                onChange={e => setPass(p => ({ ...p, actual: e.target.value }))}
+                onKeyDown={e => e.key === 'Enter' && cambiarPassword()}
+                style={{ paddingRight: 72 }} />
+              <button type="button" onClick={() => setShowPass(p => ({ ...p, actual: !p.actual }))}
+                style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', fontSize:11, color:'var(--text-secondary)', fontWeight:600, padding:'2px 4px' }}>
+                {showPass.actual ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
           </div>
           <div className="form-group">
             <label>Nueva contraseña</label>
-            <input type="password" value={pass.nueva} onChange={e => setPass(p => ({ ...p, nueva: e.target.value }))} />
+            <div style={{ position: 'relative' }}>
+              <input type={showPass.nueva ? 'text' : 'password'} value={pass.nueva}
+                onChange={e => setPass(p => ({ ...p, nueva: e.target.value }))}
+                onKeyDown={e => e.key === 'Enter' && cambiarPassword()}
+                style={{ paddingRight: 72 }} />
+              <button type="button" onClick={() => setShowPass(p => ({ ...p, nueva: !p.nueva }))}
+                style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', fontSize:11, color:'var(--text-secondary)', fontWeight:600, padding:'2px 4px' }}>
+                {showPass.nueva ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
           </div>
           <div className="form-group">
             <label>Confirmar nueva</label>
-            <input type="password" value={pass.confirmar} onChange={e => setPass(p => ({ ...p, confirmar: e.target.value }))} />
+            <div style={{ position: 'relative' }}>
+              <input type={showPass.confirmar ? 'text' : 'password'} value={pass.confirmar}
+                onChange={e => setPass(p => ({ ...p, confirmar: e.target.value }))}
+                onKeyDown={e => e.key === 'Enter' && cambiarPassword()}
+                style={{ paddingRight: 72 }} />
+              <button type="button" onClick={() => setShowPass(p => ({ ...p, confirmar: !p.confirmar }))}
+                style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', fontSize:11, color:'var(--text-secondary)', fontWeight:600, padding:'2px 4px' }}>
+                {showPass.confirmar ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
           </div>
         </div>
         <div className="btn-row" style={{ marginBottom: 0 }}>

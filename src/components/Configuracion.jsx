@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import Usuarios from './Usuarios'
+import Categorias from './Categorias'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 const DIAS_SEMANA = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
@@ -12,8 +13,9 @@ const REPETIR_OPTS = [
 ]
 
 const TABS = [
-  { key: 'general',  label: '⚙️ General' },
-  { key: 'usuarios', label: '👥 Usuarios' },
+  { key: 'general',    label: '⚙️ General' },
+  { key: 'categorias', label: '🐄 Categorías' },
+  { key: 'usuarios',   label: '👥 Usuarios' },
 ]
 
 // ── Lógica de frases compartida ───────────────────────────────────────────────
@@ -227,6 +229,9 @@ export default function Configuracion({ user }) {
         </div>
       </div>
 
+      {/* ── Tab: Categorías ── */}
+      {tab === 'categorias' && <Categorias user={user} />}
+
       {/* ── Tab: Usuarios ── */}
       {tab === 'usuarios' && <Usuarios user={user} />}
 
@@ -360,6 +365,7 @@ export default function Configuracion({ user }) {
                   <input
                     value={form.texto}
                     onChange={e => setForm({ ...form, texto: e.target.value })}
+                    onKeyDown={e => e.key === 'Enter' && guardarFrase()}
                     placeholder="Ej: ¡Feliz sábado! Que el campo te traiga buenos resultados hoy."
                     style={{ fontSize: 14 }}
                   />

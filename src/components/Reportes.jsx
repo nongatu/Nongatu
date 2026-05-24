@@ -192,16 +192,20 @@ export default function Reportes({ user, onNavigate }) {
       if (tipo === 'animales_activos') {
         let q = supabase.from('animales')
           .select('*, clientes(nombre_razon_social), categorias(nombre,cobrable)')
-          .eq('estado', 'activo').order('cliente_id').order('categoria_id')
+          .eq('estado', 'activo').order('fecha_ingreso', { ascending: true }).order('cliente_id')
         if (cliente) q = q.eq('cliente_id', parseInt(cliente))
+        if (desde)   q = q.gte('fecha_ingreso', desde)
+        if (hasta)   q = q.lte('fecha_ingreso', hasta)
         const { data: d } = await q
         resultado = d
 
       } else if (tipo === 'estado_cuenta') {
         let q = supabase.from('cobros')
           .select('*, clientes(nombre_razon_social), pagos(monto)')
-          .order('periodo', { ascending: false })
+          .order('periodo', { ascending: true })
         if (cliente) q = q.eq('cliente_id', parseInt(cliente))
+        if (desde)   q = q.gte('fecha_generacion', desde)
+        if (hasta)   q = q.lte('fecha_generacion', hasta)
         const { data: d } = await q
         resultado = d
 
@@ -325,14 +329,14 @@ export default function Reportes({ user, onNavigate }) {
           }))
 
         resultado = [...creditosNorm, ...pagosNorm]
-          .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+          .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
 
       } else {
         // bajas / salidas / reclasificados / movimiento_general
         const tipoMap = { bajas:'baja', salidas:'salida', reclasificados:'reclasificacion', movimiento_general: undefined }
         let qmov = supabase.from('movimientos')
           .select('*, clientes(nombre_razon_social), cat_ant:categorias!movimientos_categoria_anterior_id_fkey(nombre), cat_nva:categorias!movimientos_categoria_nueva_id_fkey(nombre), usuarios(nombre_usuario)')
-          .order('fecha', { ascending: false })
+          .order('fecha', { ascending: true })
         if (tipoMap[tipo]) qmov = qmov.eq('tipo', tipoMap[tipo])
         if (cliente) qmov = qmov.eq('cliente_id', parseInt(cliente))
         if (desde)   qmov = qmov.gte('fecha', desde)
@@ -364,7 +368,7 @@ export default function Reportes({ user, onNavigate }) {
           }))
 
           resultado = [...(movData || []), ...ingresos]
-            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+            .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
         } else {
           resultado = movData
         }
@@ -468,11 +472,11 @@ export default function Reportes({ user, onNavigate }) {
           </div>
           <div className="form-group">
             <label>Desde</label>
-            <input type="date" value={desde} onChange={e => setDesde(e.target.value)} />
+            <input type="date" value={desde} onChange={e => setDesde(e.target.value)} onKeyDown={e => e.key === 'Enter' && generar()} />
           </div>
           <div className="form-group">
             <label>Hasta</label>
-            <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} />
+            <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} onKeyDown={e => e.key === 'Enter' && generar()} />
           </div>
         </div>
         <div className="btn-row">

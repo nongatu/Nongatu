@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 
 const NAV = [
-  { key: 'dashboard',  label: 'Inicio' },
-  { key: 'clientes',   label: 'Clientes' },
-  { key: 'animales',   label: 'Animales' },
-  { key: 'cobros',     label: 'Cobros' },
-  { key: 'reportes',   label: 'Reportes' },
-  { key: 'categorias', label: 'Categorías' },
+  { key: 'dashboard', label: 'Inicio' },
+  { key: 'clientes',  label: 'Clientes' },
+  { key: 'animales',  label: 'Animales' },
+  { key: 'cobros',    label: 'Cobros' },
+  { key: 'reportes',  label: 'Reportes' },
 ]
 
 const ALL_LABELS = {
