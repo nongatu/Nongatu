@@ -18,14 +18,13 @@ const ALL_LABELS = {
 export default function Layout({ user, currentPage, onNavigate, onLogout, children }) {
   const [open, setOpen]   = useState(false)
   const [foto, setFoto]   = useState(null)
-  const [logo, setLogo]   = useState(null)
+  const [logoOk, setLogoOk] = useState(true)
   const perms = user?.permisos || {}
 
-  // Reload photo and logo when page changes
+  // Reload photo when page changes
   useEffect(() => {
     const key = `profile_photo_${user?.nombre_usuario}`
     setFoto(localStorage.getItem(key) || null)
-    setLogo(localStorage.getItem('nongatu_logo') || null)
   }, [currentPage, user?.nombre_usuario])
 
   const getDisplayName = () => {
@@ -61,8 +60,13 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
 
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <div className="sidebar-title">
-          {logo
-            ? <img src={logo} alt="Ñongatu" style={{ maxWidth: 180, maxHeight: 48, objectFit: 'contain', display: 'block' }} />
+          {logoOk
+            ? <img
+                src="/nongatu-logo-sidebar.png"
+                alt="Ñongatu"
+                onError={() => setLogoOk(false)}
+                style={{ maxWidth: 180, maxHeight: 48, objectFit: 'contain', display: 'block' }}
+              />
             : '🐄 ÑONGATU'
           }
         </div>

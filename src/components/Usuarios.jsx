@@ -147,8 +147,12 @@ export default function Usuarios({ user }) {
   const eliminar = async (id) => {
     if (id === user?.id) return alert('No podés eliminar tu propio usuario.')
     if (!confirm('¿Eliminar este usuario?')) return
-    await supabase.from('usuarios').delete().eq('id', id)
-    cargar()
+    const { error } = await supabase.from('usuarios').delete().eq('id', id)
+    if (error) {
+      alert('No se pudo eliminar el usuario. Puede tener datos asociados en el sistema.')
+    } else {
+      cargar()
+    }
   }
 
   return (

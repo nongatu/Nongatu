@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Usuarios from './Usuarios'
 import Categorias from './Categorias'
 
@@ -47,15 +47,6 @@ export function getFraseHoy() {
   return null
 }
 
-export function aplicarFavicon(url) {
-  let link = document.querySelector("link[rel~='icon']")
-  if (!link) {
-    link = document.createElement('link')
-    link.rel = 'icon'
-    document.head.appendChild(link)
-  }
-  link.href = url
-}
 
 function descripcionFrase(f) {
   const d     = new Date(f.fecha_inicio + 'T12:00:00')
@@ -83,17 +74,12 @@ const GRUPOS = [
 
 // ── Componente ────────────────────────────────────────────────────────────────
 export default function Configuracion({ user }) {
-  const [tab,            setTab]           = useState('general')
-  const [frases,         setFrases]        = useState([])
-  const [form,           setForm]          = useState(FORM_EMPTY)
-  const [editId,         setEditId]        = useState(null)
-  const [mostrarForm,    setMostrarForm]   = useState(false)
-  const [msgFrases,      setMsgFrases]     = useState(null)
-  const [faviconPreview, setFaviconPreview]= useState(null)
-  const [logoPreview,    setLogoPreview]   = useState(null)
-  const [msgImagen,      setMsgImagen]     = useState(null)
-  const faviconRef = useRef()
-  const logoRef    = useRef()
+  const [tab,         setTab]       = useState('general')
+  const [frases,      setFrases]    = useState([])
+  const [form,        setForm]      = useState(FORM_EMPTY)
+  const [editId,      setEditId]    = useState(null)
+  const [mostrarForm, setMostrarForm] = useState(false)
+  const [msgFrases,   setMsgFrases] = useState(null)
 
   if (user?.rol !== 'Administrador') {
     return (
@@ -108,10 +94,6 @@ export default function Configuracion({ user }) {
       const saved = localStorage.getItem('nongatu_frases_v2')
       if (saved) setFrases(JSON.parse(saved))
     } catch {}
-    const fav  = localStorage.getItem('nongatu_favicon')
-    if (fav)  setFaviconPreview(fav)
-    const logo = localStorage.getItem('nongatu_logo')
-    if (logo) setLogoPreview(logo)
   }, [])
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -162,45 +144,6 @@ export default function Configuracion({ user }) {
     flash(setMsgFrases, { type: 'success', text: '✅ Frase eliminada.' })
   }
 
-  // ── Imágenes ──────────────────────────────────────────────────────────────
-  const handleImagen = (tipo, e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      flash(setMsgImagen, { type: 'error', text: 'El archivo debe ser una imagen.' })
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const dataUrl = ev.target.result
-      if (tipo === 'favicon') {
-        setFaviconPreview(dataUrl)
-        localStorage.setItem('nongatu_favicon', dataUrl)
-        aplicarFavicon(dataUrl)
-        flash(setMsgImagen, { type: 'success', text: '✅ Favicon actualizado. Ya aparece en la pestaña del navegador.' })
-      } else {
-        setLogoPreview(dataUrl)
-        localStorage.setItem('nongatu_logo', dataUrl)
-        flash(setMsgImagen, { type: 'success', text: '✅ Logo actualizado. Recargá la app para verlo en el menú lateral.' })
-      }
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const eliminarImagen = (tipo) => {
-    if (tipo === 'favicon') {
-      localStorage.removeItem('nongatu_favicon')
-      setFaviconPreview(null)
-      aplicarFavicon("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐄</text></svg>")
-      if (faviconRef.current) faviconRef.current.value = ''
-    } else {
-      localStorage.removeItem('nongatu_logo')
-      setLogoPreview(null)
-      if (logoRef.current) logoRef.current.value = ''
-    }
-    flash(setMsgImagen, { type: 'success', text: '✅ Imagen eliminada.' })
-  }
-
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 860 }}>
@@ -238,96 +181,6 @@ export default function Configuracion({ user }) {
       {/* ── Tab: General ── */}
       {tab === 'general' && (
         <>
-          {/* Marca visual */}
-          <div className="page-card" style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>Marca visual</div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
-              Logo del menú lateral y favicon de la pestaña — son dos imágenes independientes.
-            </div>
-
-            {msgImagen && (
-              <div className={`alert alert-${msgImagen.type}`} style={{ marginBottom: 16 }}>{msgImagen.text}</div>
-            )}
-
-            <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
-
-              {/* Logo sidebar */}
-              <div style={{ flex: '1 1 300px' }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>
-                  Logo del sistema{' '}
-                  <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>(menú lateral)</span>
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.6 }}>
-                  Reemplaza el texto "🐄 ÑONGATU" en el menú.<br />
-                  <strong>Tamaño recomendado: máximo 240 × 60 px.</strong><br />
-                  PNG con fondo transparente para que se vea bien sobre el fondo oscuro.
-                </div>
-                <div style={{
-                  background: '#1e3a5f', borderRadius: 10,
-                  padding: '10px 18px', marginBottom: 12, minHeight: 58,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {logoPreview
-                    ? <img src={logoPreview} alt="logo" style={{ maxWidth: 220, maxHeight: 50, objectFit: 'contain' }} />
-                    : <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontWeight: 700 }}>🐄 ÑONGATU</span>
-                  }
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <label className="btn btn-blue btn-sm" style={{ cursor: 'pointer' }}>
-                    📁 Subir logo
-                    <input ref={logoRef} type="file" accept="image/*" style={{ display: 'none' }}
-                      onChange={e => handleImagen('logo', e)} />
-                  </label>
-                  {logoPreview && (
-                    <button className="btn btn-red btn-sm" onClick={() => eliminarImagen('logo')}>
-                      Eliminar logo
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Favicon */}
-              <div style={{ flex: '1 1 220px' }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>
-                  Favicon{' '}
-                  <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>(pestaña del navegador)</span>
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.6 }}>
-                  Solo aparece en la pestaña, no dentro de la app.<br />
-                  <strong>Tamaño recomendado: 64 × 64 px (cuadrado).</strong><br />
-                  PNG o ICO con fondo transparente.
-                </div>
-                {/* Preview pestaña */}
-                <div style={{
-                  background: '#e8eaed', borderRadius: '8px 8px 0 0',
-                  padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6,
-                  marginBottom: 12, border: '1px solid #ccc', borderBottom: 'none',
-                }}>
-                  <div style={{ width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                    {faviconPreview
-                      ? <img src={faviconPreview} alt="fav" style={{ width: 16, height: 16, objectFit: 'contain' }} />
-                      : <span style={{ fontSize: 14 }}>🐄</span>
-                    }
-                  </div>
-                  <span style={{ fontSize: 11, color: '#333' }}>Ñongatu</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <label className="btn btn-blue btn-sm" style={{ cursor: 'pointer' }}>
-                    📁 Subir favicon
-                    <input ref={faviconRef} type="file" accept="image/*" style={{ display: 'none' }}
-                      onChange={e => handleImagen('favicon', e)} />
-                  </label>
-                  {faviconPreview && (
-                    <button className="btn btn-red btn-sm" onClick={() => eliminarImagen('favicon')}>
-                      Eliminar
-                    </button>
-                  )}
-                </div>
-              </div>
-
-            </div>
-          </div>
-
           {/* Frases de bienvenida */}
           <div className="page-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
