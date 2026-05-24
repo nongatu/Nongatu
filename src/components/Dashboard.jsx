@@ -122,7 +122,7 @@ export default function Dashboard({ user, onNavigate }) {
   return (
     <div style={{
       display:'flex', flexDirection:'column',
-      height:'calc(100vh - 92px)',
+      height:'calc(100vh - 40px)',
       gap:10, overflow:'hidden'
     }}>
 

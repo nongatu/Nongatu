@@ -212,15 +212,7 @@ export default function Perfil({ user }) {
 
           {/* Apodo */}
           <div className="form-group">
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              Apodo
-              <span style={{
-                fontSize: 10, fontWeight: 700, background: '#2563eb', color: '#fff',
-                borderRadius: 8, padding: '1px 7px', letterSpacing: '0.3px',
-              }}>
-                Usado en el saludo
-              </span>
-            </label>
+            <label>Apodo</label>
             <input
               value={perfil.apodo}
               onChange={set('apodo')}

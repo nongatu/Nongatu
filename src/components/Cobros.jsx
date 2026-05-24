@@ -125,10 +125,10 @@ function htmlRecibo(recibo, cliente, detalle, pagos=[]) {
     .recibo{width:100%;max-width:680px;margin:0 auto;border:1px solid #aaa;padding:14px;background:#fff}
     .corte{width:100%;max-width:680px;margin:10px auto;border-top:2px dashed #aaa;display:flex;align-items:center;justify-content:center;padding:4px 0;font-size:10px;color:#aaa;letter-spacing:1px;gap:8px}
     @media print{
-      body{background:#fff;padding:0}
-      .recibo{border:1px solid #999;page-break-after:always;max-width:100%;margin:0}
-      .recibo:last-child{page-break-after:auto}
-      .corte{display:none}
+      @page{size:216mm 330mm portrait;margin:4mm}
+      body{background:#fff;padding:0;margin:0}
+      .recibo{border:1px solid #999;max-width:100%;margin:0;padding:10px;page-break-inside:avoid}
+      .corte{display:flex;border-top:1px dashed #bbb;padding:2px 0;margin:3px 0;font-size:8px;color:#bbb;letter-spacing:1px;justify-content:center;gap:6px}
     }
   </style></head><body>
     ${bloque('ORIGINAL: CLIENTE', 'normal')}

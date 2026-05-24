@@ -116,17 +116,6 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
       </aside>
 
       <div className="main-content">
-        <div className="topbar">
-          <button className="hamburger" onClick={() => setOpen(!open)}>
-            <span /><span /><span />
-          </button>
-          <span className="topbar-title">
-            {ALL_LABELS[currentPage] || 'Inicio'}
-          </span>
-          <span className="topbar-user">
-            {user?.nombre_usuario} — {user?.rol}
-          </span>
-        </div>
         <div className="page-content">{children}</div>
       </div>
     </div>
