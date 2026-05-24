@@ -31,6 +31,11 @@ export default function App() {
     setPage('dashboard')
   }
 
+  const handleUpdateUser = (updatedUser) => {
+    setUser(updatedUser)
+    localStorage.setItem('nongatu_user', JSON.stringify(updatedUser))
+  }
+
   if (!user) return <Login onLogin={handleLogin} />
 
   const pages = {
@@ -40,9 +45,11 @@ export default function App() {
   }
   const PageComponent = pages[page] || Dashboard
 
+  const extraProps = page === 'perfil' ? { onUpdateUser: handleUpdateUser } : {}
+
   return (
     <Layout user={user} currentPage={page} onNavigate={setPage} onLogout={handleLogout}>
-      <PageComponent user={user} onNavigate={setPage} />
+      <PageComponent user={user} onNavigate={setPage} {...extraProps} />
     </Layout>
   )
 }
