@@ -709,6 +709,12 @@ export default function Cobros({ user }) {
     const {data:cobroFresh} = await supabase.from('cobros').select('*,pagos(monto)').eq('id',parseInt(cobro_id)).single()
     const cobroDestino = cobroFresh || cobros.find(c=>c.id===parseInt(cobro_id))
     if (!cobroDestino) { setProcesando(false); return }
+
+    // ── Validación: el cobro debe pertenecer al mismo cliente del crédito ────
+    if (cobroDestino.cliente_id !== credito.cliente_id) {
+      setMsg({type:'error', text:'Error: el cobro seleccionado no pertenece al mismo cliente del crédito. Operación cancelada.'})
+      setProcesando(false); return
+    }
     const pagadoCobro = cobroDestino.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
     const saldoCobro = Number(cobroDestino.total) - pagadoCobro
 
