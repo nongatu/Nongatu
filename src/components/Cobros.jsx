@@ -365,7 +365,7 @@ export default function Cobros({ user }) {
   const cargar = async () => {
     setLoading(true)
     const [{data:cb},{data:rc},{data:cr}] = await Promise.all([
-      supabase.from('cobros').select('*, clientes(nombre_razon_social), pagos(id,monto,tipo,fecha_pago,medio_pago)').order('periodo').order('cliente_id'),
+      supabase.from('cobros').select('*, clientes(nombre_razon_social), pagos(id,monto,tipo,fecha_pago,medio_pago,credito_id)').order('periodo').order('cliente_id'),
       supabase.from('recibos').select('*, clientes(nombre_razon_social), cobros(periodo)').order('created_at',{ascending:false}),
       supabase.from('creditos_cliente').select('*, clientes(nombre_razon_social), cobros(periodo), pagos!pagos_credito_id_fkey(monto, cobros(periodo))').order('fecha_pago',{ascending:false}),
     ])
@@ -907,6 +907,9 @@ export default function Cobros({ user }) {
       for (const c of cobros) {
         if (c.cliente_id !== cr.cliente_id) continue
         for (const p of (c.pagos || [])) {
+          // Si el pago ya está vinculado a un crédito específico (vía credito_id), no
+          // se lo reasigna por coincidencia de fecha: pertenece a ese otro crédito.
+          if (p.credito_id) continue
           if (p.tipo === 'credito_adelantado' && p.fecha_pago?.startsWith(fechaCrStr)) {
             aplicados.push({ periodo: c.periodo, monto: Number(p.monto) })
           }
