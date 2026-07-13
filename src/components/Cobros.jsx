@@ -221,7 +221,7 @@ function calcularCobro(animalesCli, periodo, bajasCli) {
   const [year, month] = periodo.split('-').map(Number)
   const inicioPeriodo = new Date(year, month - 1, 1)
   const finPeriodo = new Date(year, month, 0)
-  const diasMes = finPeriodo.getDate()
+  const diasMes = 30 // siempre 30 días por mes, independientemente de los días reales (28/29/31)
 
   // Base: animales activos + bajas/vendidos que tienen fecha_baja (se cobran hasta ese mes inclusive)
   const aptos = animalesCli.filter(a => {
