@@ -646,7 +646,8 @@ export default function Cobros({ user }) {
     const montoParaAsignar = esReasignacion ? Number(cr.monto) : montoDisponible
     const cobrosPendCli = cobros.filter(c=>
       c.cliente_id===cr.cliente_id &&
-      (c.estado==='pendiente'||c.estado==='parcial')
+      (c.estado==='pendiente'||c.estado==='parcial') &&
+      (!cr.periodo_aplicar || c.periodo >= cr.periodo_aplicar)
     ).sort((a,b)=>a.periodo.localeCompare(b.periodo))
     const primerCobro = cobrosPendCli[0]
     const saldoPrimero = primerCobro
