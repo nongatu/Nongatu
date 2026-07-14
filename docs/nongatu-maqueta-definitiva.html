@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ñongatu — Maqueta definitiva (Ventas y Gastos)</title>
+<style>
+:root{
+  --azul:#1e3a8a; --azul-osc:#152e6e; --azul-claro:#3b82f6;
+  --verde:#16a34a; --hoja:#4ade80;
+  --fondo:#eef1f6; --texto:#1f2937; --gris:#64748b; --borde:#e2e8f0;
+  --naranja:#f59e0b; --rojo:#ef4444;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--fondo);color:var(--texto);font-size:14px}
+button{font-family:inherit}
+.num{font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--azul-claro);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ================= SIDEBAR ================= */
+.app{display:flex;min-height:100dvh}
+.sidebar{
+  width:220px;min-width:220px;background:var(--azul);color:#fff;
+  display:flex;flex-direction:column;position:sticky;top:0;height:100dvh;z-index:30;
+  transition:width .2s ease,min-width .2s ease;
+}
+.sb-head{display:flex;align-items:center;padding:22px 16px 16px 22px;gap:8px}
+.logo{font-size:26px;font-weight:700;letter-spacing:-.5px;white-space:nowrap;overflow:hidden}
+.logo .hoja{color:var(--hoja)}
+.logo-min{display:none;font-size:24px;font-weight:700;color:var(--hoja)}
+.sb-toggle{
+  margin-left:auto;flex:none;background:rgba(255,255,255,.14);border:none;color:#e4eaf7;
+  width:26px;height:26px;border-radius:8px;cursor:pointer;font-size:14px;line-height:1;
+}
+.sb-toggle:hover{background:rgba(255,255,255,.25)}
+.nav{flex:1;overflow-y:auto;padding-bottom:8px}
+.nav button,.sb-bottom>button{
+  display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;text-align:left;
+  padding:11px 22px;color:#e4eaf7;font-size:14.5px;cursor:pointer;border-left:3px solid transparent;
+  white-space:nowrap;position:relative;
+}
+.nav button:hover,.sb-bottom>button:hover{background:rgba(255,255,255,.07)}
+.nav button.active,.sb-bottom>button.active{background:var(--azul-osc);border-left-color:var(--hoja);color:#fff;font-weight:600}
+.nav button.soon{opacity:.6}
+.nav .ic{flex:none;width:20px;text-align:center;font-size:15px}
+.tag{font-size:9.5px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:999px;text-transform:uppercase;margin-left:auto}
+.tag-nuevo{background:var(--hoja);color:#0b3d1f}
+.tag-pronto{background:rgba(255,255,255,.15);color:#cfdaf3}
+.nav-sep{padding:12px 22px 4px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#9db2dd;white-space:nowrap;overflow:hidden}
+.sb-bottom{padding-top:8px;border-top:1px solid rgba(255,255,255,.12)}
+.user-box{margin:8px 12px;background:rgba(255,255,255,.1);border-radius:12px;padding:9px 11px;display:flex;align-items:center;gap:10px}
+.user-box .avatar{flex:none;width:32px;height:32px;border-radius:50%;background:#fff;color:var(--azul);display:flex;align-items:center;justify-content:center;font-weight:700}
+.user-box .nombre{font-size:13px;font-weight:600;white-space:nowrap}
+.user-box .rol{font-size:10.5px;color:#cfdaf3}
+.logout{padding:4px 22px 14px;font-size:12px;color:#cfdaf3;cursor:pointer;background:none;border:none;white-space:nowrap;text-align:left;width:100%}
+
+/* colapsado */
+body.min .sidebar{width:70px;min-width:70px}
+body.min .logo,body.min .nav .txt,body.min .tag,body.min .nav-sep,
+body.min .user-box div:not(.avatar),body.min .logout,body.min .sb-bottom .txt{display:none}
+body.min .logo-min{display:block}
+body.min .sb-head{padding:22px 0 16px;flex-direction:column;justify-content:center;gap:10px}
+body.min .sb-toggle{margin:0}
+body.min .nav button,body.min .sb-bottom>button{justify-content:center;padding:12px 0}
+body.min .user-box{justify-content:center;padding:8px 6px;margin:8px 10px}
+body.min .nav button:hover::after,body.min .sb-bottom>button:hover::after{
+  content:attr(data-tip);position:absolute;left:calc(100% + 8px);top:50%;transform:translateY(-50%);
+  background:#111827;color:#fff;font-size:12px;padding:5px 10px;border-radius:8px;white-space:nowrap;z-index:50;
+}
+
+/* ================= CONTENIDO ================= */
+main{flex:1;min-width:0}
+main>section{display:none;padding:22px 26px 60px}
+main>section.vis{display:block}
+h2.seccion{font-size:20px;margin-bottom:14px}
+
+.card{background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 1px 3px rgba(15,23,42,.06);margin-bottom:16px}
+.card h3{font-size:15.5px;margin-bottom:3px}
+.card .sub{font-size:12.5px;color:var(--gris);margin-bottom:12px}
+
+.nota{background:#fffbeb;border:1px dashed var(--naranja);color:#92400e;border-radius:11px;padding:10px 14px;font-size:13px;margin-bottom:16px;line-height:1.5}
+.nota b{color:#78350f}
+
+.btn{border:none;border-radius:8px;padding:9px 15px;font-weight:600;font-size:13px;cursor:pointer;color:#fff;background:var(--verde)}
+.btn:hover{filter:brightness(.94)}
+.btn-azul{background:var(--azul-claro)}
+.btn-rojo{background:var(--rojo)}
+.btn-borde{background:#fff;color:var(--azul);border:1px solid #cbd5e1}
+.btn-mini{padding:6px 11px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+.p-pagado{background:#dcfce7;color:#166534}
+.p-pendiente{background:#ffedd5;color:#9a3412}
+.p-fiado{background:#fee2e2;color:#991b1b}
+.p-contado{background:#dbeafe;color:#1e40af}
+.p-transfer{background:#ede9fe;color:#5b21b6}
+.p-cat{background:#e0f2fe;color:#075985}
+.p-tipo{background:#f1f5f9;color:#334155}
+.p-caja{background:#fef9c3;color:#854d0e}
+.p-banco{background:#e0e7ff;color:#3730a3}
+
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:13px 16px;margin-bottom:14px}
+.campo label{display:block;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#475569;margin-bottom:6px}
+.campo input,.campo select{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13.5px;font-family:inherit;background:#fff;color:var(--texto)}
+.campo input[readonly]{background:#f1f5f9;font-weight:700}
+.pista{font-size:11.5px;color:#b45309;margin-top:5px;display:none}
+
+.tabla-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;color:#475569;padding:9px 11px;border-bottom:1.5px solid var(--borde);white-space:nowrap}
+td{padding:10px 11px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+tr:hover td{background:#f8fafc}
+td.n,th.n{text-align:right}
+.faja{background:var(--azul);color:#fff;border-radius:0 0 12px 12px;padding:10px 16px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;font-weight:600;font-size:12.5px;margin:0 -20px -18px}
+
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--borde);margin-bottom:15px;flex-wrap:wrap}
+.tab-btn{background:none;border:none;padding:9px 15px;font-size:14px;font-weight:600;color:var(--gris);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+.tab-btn.on{color:var(--azul-claro);border-bottom-color:var(--azul-claro)}
+.tab-panel{display:none}.tab-panel.on{display:block}
+
+.brow{display:grid;grid-template-columns:104px 1fr 100px;align-items:center;gap:11px;margin-bottom:10px;font-size:12.5px}
+.brow .bn{font-weight:600}
+.btrack{background:#f1f5f9;border-radius:6px;height:13px;overflow:hidden}
+.bfill{height:100%;border-radius:6px}
+.brow .bm{text-align:right;font-weight:600;color:#334155}
+
+.chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:11px}
+.chip{border:1.5px solid var(--borde);border-radius:12px;padding:12px 14px;background:#fafcff}
+.chip.bajo{border-color:#fcd34d;background:#fffbeb}
+.chip .cn{font-weight:700;font-size:13.5px}
+.chip .cp{font-size:12px;color:var(--azul-claro);font-weight:600;margin-top:2px}
+.chip .cs{font-size:11.5px;color:var(--gris);margin-top:1px}
+.chip .cs b.al{color:#b45309}
+
+/* Autocompletado */
+.ac{position:relative}
+.ac-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid var(--borde);
+  border-radius:11px;box-shadow:0 10px 26px rgba(15,23,42,.16);z-index:40;max-height:225px;overflow-y:auto;display:none}
+.ac-list.open{display:block}
+.ac-it{padding:9px 13px;cursor:pointer;border-bottom:1px solid #f2f5fa}
+.ac-it:last-child{border-bottom:none}
+.ac-it:hover{background:#eff6ff}
+.ac-it .an{font-weight:600;font-size:13px}
+.ac-it .as{font-size:11px;color:var(--gris);margin-top:1px}
+.ac-it.crear{color:var(--verde);font-weight:600;font-size:12.5px}
+.ac-ok{font-size:11.5px;color:#166534;margin-top:5px;display:none}
+
+/* Modales centrados */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;z-index:60;padding:16px}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:15px;box-shadow:0 24px 60px rgba(15,23,42,.3);width:100%;max-width:560px;max-height:88dvh;display:flex;flex-direction:column;overflow:hidden;animation:pop .16s ease}
+.modal.lg{max-width:740px}
+@keyframes pop{from{transform:translateY(10px);opacity:.6}to{transform:none;opacity:1}}
+.m-head{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--borde)}
+.m-head h4{font-size:16px;color:var(--azul-osc)}
+.m-x{margin-left:auto;background:#f1f5f9;border:none;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;color:#475569}
+.m-body{padding:16px 18px;overflow-y:auto}
+.m-pie{padding:13px 18px;border-top:1px solid var(--borde);display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+
+/* Tareas: círculo + eliminar */
+.tarea{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9}
+.tarea:last-child{border-bottom:none}
+.cc{flex:none;width:20px;height:20px;border-radius:50%;border:2px solid #94a3b8;margin-top:1px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;background:#fff}
+.cc::after{content:"";width:9px;height:5px;border-left:2.2px solid #fff;border-bottom:2.2px solid #fff;transform:rotate(-45deg) translate(1px,-1px);opacity:0}
+.tarea.hecha .cc{background:var(--verde);border-color:var(--verde)}
+.tarea.hecha .cc::after{opacity:1}
+.tarea .tt{font-size:12.5px;line-height:1.45;flex:1;cursor:pointer}
+.tarea.hecha .tt{text-decoration:line-through;color:#94a3b8}
+.tx{flex:none;background:none;border:none;color:#cbd5e1;font-size:15px;cursor:pointer;padding:0 2px;line-height:1}
+.tx:hover{color:var(--rojo)}
+
+/* Actividad */
+.acti{display:flex;gap:11px;padding:9px 0;border-bottom:1px solid #f1f5f9;font-size:12.5px;align-items:flex-start}
+.acti:last-child{border-bottom:none}
+.aic{flex:none;width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.ai-v{background:#dcfce7}.ai-r{background:#fee2e2}.ai-a{background:#fef9c3}.ai-z{background:#dbeafe}
+.acti .t1{font-weight:600}
+.acti .t2{font-size:11px;color:var(--gris);margin-top:1px}
+.acti .mm{margin-left:auto;font-weight:700;white-space:nowrap}
+
+/* ============ DASHBOARD pantalla completa ============ */
+#inicio.vis{display:grid;height:100dvh;overflow:hidden;grid-template-rows:auto auto minmax(0,1fr);gap:13px;padding:16px 24px}
+.bienvenida{background:var(--azul);color:#fff;border-radius:14px;padding:16px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.bienvenida h1{font-size:20px;margin-bottom:2px}
+.bienvenida .fecha{font-size:12.5px;color:#cfdaf3}
+.bienvenida .frase{font-size:12.5px;font-style:italic;color:#e4eaf7;margin-top:3px}
+.hbtns{margin-left:auto;display:flex;gap:9px;flex-wrap:wrap}
+.hbtn{background:rgba(255,255,255,.95);color:var(--azul);border:none;border-radius:9px;padding:8px 14px;font-weight:600;font-size:12.5px;cursor:pointer}
+.hbtn.verde{background:#22c55e;color:#fff}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}
+.stat{border-radius:14px;padding:13px 17px;color:#fff;position:relative;overflow:hidden}
+.stat .icon{position:absolute;right:14px;top:11px;font-size:22px;opacity:.5}
+.stat .label{font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;opacity:.9}
+.stat .valor{font-size:22px;font-weight:700;margin:4px 0 1px}
+.stat .detalle{font-size:11px;opacity:.92}
+.stat.verde{background:linear-gradient(135deg,#10b981,#059669)}
+.stat.rojo{background:linear-gradient(135deg,#f87171,#dc2626)}
+.stat.morado{background:linear-gradient(135deg,#a78bfa,#7c3aed)}
+.stat.naranja{background:linear-gradient(135deg,#fbbf24,#d97706)}
+
+.dgrid{display:grid;grid-template-columns:1.85fr 1fr;gap:13px;min-height:0}
+.dcol{display:grid;grid-template-rows:auto minmax(0,1fr);gap:13px;min-height:0}
+.d2{display:grid;grid-template-columns:1fr 1fr;gap:13px;min-height:0}
+.dder{display:grid;grid-template-rows:auto minmax(0,1fr);gap:13px;min-height:0}
+#inicio .card{margin-bottom:0}
+.flexv{display:flex;flex-direction:column;min-height:0}
+.scrollea{overflow-y:auto;min-height:0;flex:1}
+
+@media (max-width:1080px){
+  #inicio.vis{display:block;height:auto;overflow:visible;padding:18px 16px 50px}
+  #inicio .card{margin-bottom:13px}
+  .stats{grid-template-columns:1fr 1fr;margin:13px 0}
+  .dgrid,.d2{grid-template-columns:1fr}
+  .dcol,.dder{display:block}
+  .hbtns{margin-left:0}
+}
+@media (max-width:760px){
+  .sidebar{position:fixed;left:0;transform:translateX(-100%);transition:transform .2s}
+  body.sbopen .sidebar{transform:none}
+  main>section{padding:16px 14px 48px}
+  .menu-flot{display:flex}
+}
+.menu-flot{display:none;position:fixed;bottom:16px;left:16px;z-index:40;width:44px;height:44px;border-radius:50%;
+  border:none;background:var(--azul);color:#fff;font-size:18px;box-shadow:0 8px 20px rgba(15,23,42,.3);cursor:pointer;align-items:center;justify-content:center}
+
+#toast{position:fixed;bottom:58px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--azul);color:#fff;
+  padding:10px 19px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.22s;z-index:80}
+#toast.show{opacity:1;transform:translateX(-50%)}
+.cinta{position:fixed;bottom:12px;right:14px;background:#111827;color:#fff;font-size:10.5px;padding:6px 12px;border-radius:999px;opacity:.85;z-index:40}
+</style>
+</head>
+<body>
+<div class="app">
+
+<aside class="sidebar">
+  <div class="sb-head">
+    <div class="logo">ñ<span class="hoja">o</span>ngatu</div>
+    <div class="logo-min">ñ</div>
+    <button class="sb-toggle" id="sbT" title="Minimizar menú">‹</button>
+  </div>
+  <nav class="nav">
+    <button class="active" data-sec="inicio" data-tip="Inicio"><span class="ic">🏠</span><span class="txt">Inicio</span></button>
+    <button data-sec="clientes" data-tip="Clientes"><span class="ic">👥</span><span class="txt">Clientes</span></button>
+    <button data-sec="animales" data-tip="Animales"><span class="ic">🐄</span><span class="txt">Animales</span></button>
+    <button data-sec="ventas" data-tip="Ventas"><span class="ic">🛒</span><span class="txt">Ventas</span><span class="tag tag-nuevo">nuevo</span></button>
+    <button data-sec="cobros" data-tip="Cobros"><span class="ic">💳</span><span class="txt">Cobros</span></button>
+    <button data-sec="gastos" data-tip="Gastos"><span class="ic">📤</span><span class="txt">Gastos</span><span class="tag tag-nuevo">nuevo</span></button>
+    <button data-sec="reportes" data-tip="Reportes"><span class="ic">📊</span><span class="txt">Reportes</span></button>
+    <div class="nav-sep">Próximamente</div>
+    <button class="soon" data-tip="Salarios" onclick="toast('Módulo Salarios: planificado para la próxima etapa.')"><span class="ic">🧾</span><span class="txt">Salarios</span><span class="tag tag-pronto">pronto</span></button>
+    <button class="soon" data-tip="Caja y Bancos" onclick="toast('Caja y Bancos: los campos de cuenta ya lo dejan preparado.')"><span class="ic">🏦</span><span class="txt">Caja y Bancos</span><span class="tag tag-pronto">pronto</span></button>
+  </nav>
+  <div class="sb-bottom">
+    <button data-sec="config" data-tip="Configuración"><span class="ic">⚙️</span><span class="txt">Configuración</span></button>
+    <div class="user-box">
+      <div class="avatar">M</div>
+      <div><div class="nombre">marcos</div><div class="rol">Administrador</div></div>
+    </div>
+    <button class="logout">Cerrar sesión</button>
+  </div>
+</aside>
+
+<button class="menu-flot" onclick="document.body.classList.toggle('sbopen')">☰</button>
+
+<main>
+
+<!-- ============ INICIO — pantalla completa ============ -->
+<section id="inicio" class="vis">
+  <div class="bienvenida">
+    <div>
+      <h1>Bienvenida a Ñongatu, Marcos</h1>
+      <div class="fecha">Lunes, 13 de julio de 2026</div>
+      <div class="frase">¡Un buen día para mantener todo bajo control!</div>
+    </div>
+    <div class="hbtns">
+      <button class="hbtn verde" onclick="irA('ventas')">+ Nueva venta</button>
+      <button class="hbtn" onclick="irA('gastos')">+ Nuevo gasto</button>
+      <button class="hbtn" onclick="irA('cobros')">Cobros</button>
+    </div>
+  </div>
+
+  <div class="stats num">
+    <div class="stat verde"><div class="icon">📈</div><div class="label">Ingresos del mes</div><div class="valor">27.900.000 Gs.</div><div class="detalle">Pastaje 23.040.000 · Ventas 4.860.000</div></div>
+    <div class="stat rojo"><div class="icon">📉</div><div class="label">Gastos del mes</div><div class="valor">6.240.000 Gs.</div><div class="detalle">Todo al contado · 14 comprobantes</div></div>
+    <div class="stat morado"><div class="icon">🧮</div><div class="label">Resultado del mes</div><div class="valor">+21.660.000 Gs.</div><div class="detalle">Ingresos − gastos · julio</div></div>
+    <div class="stat naranja"><div class="icon">⏳</div><div class="label">Por cobrar</div><div class="valor">1.370.000 Gs.</div><div class="detalle">Fiados 1.340.000 · Pastaje 30.000</div></div>
+  </div>
+
+  <div class="dgrid">
+    <div class="dcol">
+      <div class="card" style="padding-bottom:12px">
+        <h3>Ventas del mes por producto</h3>
+        <div class="sub num">Julio 2026 · 23 ventas · 4.860.000 Gs.</div>
+        <div class="num">
+          <div class="brow"><span class="bn">🥚 Huevos</span><div class="btrack"><div class="bfill" style="width:100%;background:#f59e0b"></div></div><span class="bm">2.150.000</span></div>
+          <div class="brow"><span class="bn">🧀 Queso</span><div class="btrack"><div class="bfill" style="width:60%;background:#10b981"></div></div><span class="bm">1.280.000</span></div>
+          <div class="brow"><span class="bn">🥒 Pepinillos</span><div class="btrack"><div class="bfill" style="width:39%;background:#22c55e"></div></div><span class="bm">830.000</span></div>
+          <div class="brow" style="margin-bottom:0"><span class="bn">🥩 Carne</span><div class="btrack"><div class="bfill" style="width:28%;background:#ef4444"></div></div><span class="bm">600.000</span></div>
+        </div>
+      </div>
+      <div class="d2">
+        <div class="card flexv">
+          <h3>Ingresos vs gastos</h3>
+          <div class="sub">Últimos 6 meses</div>
+          <div class="scrollea" style="display:flex;align-items:flex-end;gap:13px;padding:2px 4px 0;min-height:80px">
+            <div style="flex:1;display:flex;align-items:flex-end;gap:4px;height:100%"><div style="width:12px;height:21%;background:#10b981;border-radius:3px 3px 0 0"></div><div style="width:12px;height:11%;background:#f87171;border-radius:3px 3px 0 0"></div></div>
+            <div style="flex:1;display:flex;align-items:flex-end;gap:4px;height:100%"><div style="width:12px;height:27%;background:#10b981;border-radius:3px"></div><div style="width:12px;height:12%;background:#f87171;border-radius:3px"></div></div>
+            <div style="flex:1;display:flex;align-items:flex-end;gap:4px;height:100%"><div style="width:12px;height:30%;background:#10b981;border-radius:3px"></div><div style="width:12px;height:14%;background:#f87171;border-radius:3px"></div></div>
+            <div style="flex:1;display:flex;align-items:flex-end;gap:4px;height:100%"><div style="width:12px;height:79%;background:#10b981;border-radius:3px"></div><div style="width:12px;height:19%;background:#f87171;border-radius:3px"></div></div>
+            <div style="flex:1;display:flex;align-items:flex-end;gap:4px;height:100%"><div style="width:12px;height:83%;background:#10b981;border-radius:3px"></div><div style="width:12px;height:21%;background:#f87171;border-radius:3px"></div></div>
+            <div style="flex:1;display:flex;align-items:flex-end;gap:4px;height:100%"><div style="width:12px;height:100%;background:#10b981;border-radius:3px"></div><div style="width:12px;height:22%;background:#f87171;border-radius:3px"></div></div>
+          </div>
+          <div style="display:flex;gap:13px;padding-top:5px;font-size:10.5px;color:var(--gris)"><span style="flex:1;text-align:center">Feb</span><span style="flex:1;text-align:center">Mar</span><span style="flex:1;text-align:center">Abr</span><span style="flex:1;text-align:center">May</span><span style="flex:1;text-align:center">Jun</span><span style="flex:1;text-align:center">Jul</span></div>
+        </div>
+        <div class="card flexv">
+          <h3>Animales en pastura</h3>
+          <div class="sub num">405 bovinos · 2 ovinos · 407 en total</div>
+          <div class="scrollea num" style="display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start">
+            <span class="pill p-tipo">DM 243</span><span class="pill p-tipo">Vaquilla 86</span><span class="pill p-tipo">Vaca 32</span><span class="pill p-tipo">DH 20</span><span class="pill p-tipo">TH 14</span><span class="pill p-tipo">TM 7</span><span class="pill p-tipo">Toro 3</span><span class="pill p-tipo">Ovejas 1</span><span class="pill p-tipo">Carneros 1</span>
+          </div>
+          <button class="btn btn-borde btn-mini" style="margin-top:8px;align-self:flex-start" onclick="irA('animales')">Ver módulo</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dder">
+      <div class="card" style="padding-bottom:12px">
+        <h3>Tareas pendientes</h3>
+        <div class="sub">Círculo para completar · ✕ para eliminar</div>
+        <div id="tareas">
+          <div class="tarea"><span class="cc" onclick="this.parentElement.classList.toggle('hecha')"></span><span class="tt" onclick="this.parentElement.classList.toggle('hecha')">Agregar cantidad de caballos y ganado que pertenecen a Alain</span><button class="tx" onclick="borrarTarea(this)">✕</button></div>
+          <div class="tarea"><span class="cc" onclick="this.parentElement.classList.toggle('hecha')"></span><span class="tt" onclick="this.parentElement.classList.toggle('hecha')">Pasar por la despensa San José a cobrar el fiado del 12/7</span><button class="tx" onclick="borrarTarea(this)">✕</button></div>
+          <div class="tarea hecha"><span class="cc" onclick="this.parentElement.classList.toggle('hecha')"></span><span class="tt" onclick="this.parentElement.classList.toggle('hecha')">Cargar la producción de queso de la semana</span><button class="tx" onclick="borrarTarea(this)">✕</button></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input id="tIn" placeholder="Agregar tarea…" style="flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit">
+          <button class="btn btn-mini" onclick="agregarTarea()">+</button>
+        </div>
+      </div>
+      <div class="card flexv">
+        <h3>Actividad reciente</h3>
+        <div class="sub">Ventas, gastos y cobros</div>
+        <div class="scrollea num">
+          <div class="acti"><div class="aic ai-v">💰</div><div><div class="t1">Venta 0151 · Huevos 10 doc.</div><div class="t2">María Duarte · efectivo · hoy 09:40</div></div><div class="mm">200.000</div></div>
+          <div class="acti"><div class="aic ai-v">🥒</div><div><div class="t1">Venta 0150 · Pepinillos ×6</div><div class="t2">Consumidor final · efectivo · hoy 08:15</div></div><div class="mm">120.000</div></div>
+          <div class="acti"><div class="aic ai-r">📤</div><div><div class="t1">Gasto · Balanceado ponedoras</div><div class="t2">Coop. Fernheim · banco · ayer</div></div><div class="mm">2.800.000</div></div>
+          <div class="acti"><div class="aic ai-a">🧾</div><div><div class="t1">Venta fiada 0148 · Huevos 30 doc.</div><div class="t2">Despensa San José · vence 19/7</div></div><div class="mm">540.000</div></div>
+          <div class="acti"><div class="aic ai-z">✅</div><div><div class="t1">Cobro pastaje · Julio 2026</div><div class="t2">Tomas Mendoza Gimenez · 13/7</div></div><div class="mm">23.040.000</div></div>
+          <div class="acti"><div class="aic ai-v">🧀</div><div><div class="t1">Venta 0149 · Queso 4 kg</div><div class="t2">Tomas Mendoza · transferencia · 12/7</div></div><div class="mm">160.000</div></div>
+          <div class="acti"><div class="aic ai-r">📤</div><div><div class="t1">Gasto · Frascos y vinagre</div><div class="t2">Casa Rural SA · caja chica · 12/7</div></div><div class="mm">640.000</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CLIENTES ============ -->
+<section id="clientes">
+  <h2 class="seccion">Clientes</h2>
+  <div class="nota">📌 <b>Un solo padrón para todo.</b> Se agrega la columna <b>Tipo</b>. Tocá el nombre de un cliente para abrir su ficha en una ventana flotante.</div>
+  <div class="card">
+    <div class="campo" style="max-width:420px;margin-bottom:12px"><label>Buscar</label><input placeholder="Nombre, RUC, cédula, teléfono…"></div>
+    <div class="tabla-wrap">
+      <table class="num">
+        <thead><tr><th>Nombre / Razón social</th><th>Tipo</th><th>RUC</th><th>Teléfono</th><th>Dirección</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><a href="#" onclick="abrir('m-ficha');return false" style="font-weight:600;color:var(--azul-claro)">Tomas Mendoza Gimenez</a></td><td><span class="pill p-cat">Pastaje + Ventas</span></td><td>5581700-9</td><td>0981600753</td><td>Filadelfia</td><td><button class="btn btn-azul btn-mini">Editar</button></td></tr>
+          <tr><td><a href="#" onclick="abrir('m-ficha');return false" style="font-weight:600;color:var(--azul-claro)">Despensa San José</a></td><td><span class="pill p-pendiente">Ventas</span></td><td>80045678-1</td><td>0971456789</td><td>Filadelfia</td><td><button class="btn btn-azul btn-mini">Editar</button></td></tr>
+          <tr><td><a href="#" onclick="abrir('m-ficha');return false" style="font-weight:600;color:var(--azul-claro)">Carnicería El Norte</a></td><td><span class="pill p-pendiente">Ventas</span></td><td>80031234-5</td><td>0983112233</td><td>Loma Plata</td><td><button class="btn btn-azul btn-mini">Editar</button></td></tr>
+          <tr><td><a href="#" onclick="abrir('m-ficha');return false" style="font-weight:600;color:var(--azul-claro)">Alain Paul Henri Chassagne</a></td><td><span class="pill p-tipo">Pastaje</span></td><td>3548640-6</td><td>-</td><td>Filadelfia</td><td><button class="btn btn-azul btn-mini">Editar</button></td></tr>
+          <tr><td><a href="#" onclick="abrir('m-ficha');return false" style="font-weight:600;color:var(--azul-claro)">María Duarte</a></td><td><span class="pill p-pendiente">Ventas</span></td><td>-</td><td>0975998877</td><td>Filadelfia</td><td><button class="btn btn-azul btn-mini">Editar</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ANIMALES ============ -->
+<section id="animales">
+  <h2 class="seccion">Animales</h2>
+  <div class="nota">📌 <b>Este módulo queda igual que ahora.</b> Único cambio: el selector de cliente pasa a buscar por nombre o RUC.</div>
+  <div class="card">
+    <h3>Animales activos</h3>
+    <div class="sub">Vista resumida — el módulo completo no cambia</div>
+    <div class="tabla-wrap">
+      <table class="num">
+        <thead><tr><th>ID</th><th>Cliente</th><th>Categoría</th><th class="n">Cant.</th><th>Ingreso</th><th class="n">Precio</th><th class="n">Días</th><th>Cobrado</th></tr></thead>
+        <tbody>
+          <tr><td>3</td><td>Tomas</td><td><span class="pill p-cat">Vaca</span></td><td class="n"><b>31</b></td><td>27/10/2025</td><td class="n">60.000</td><td class="n">259</td><td><span class="pill p-fiado">No</span></td></tr>
+          <tr><td>9</td><td>Tomas</td><td><span class="pill p-cat">Vaquilla</span></td><td class="n"><b>52</b></td><td>9/11/2025</td><td class="n">60.000</td><td class="n">246</td><td><span class="pill p-fiado">No</span></td></tr>
+          <tr><td>16</td><td>Tomas</td><td><span class="pill p-cat">Desmamante Macho</span></td><td class="n"><b>150</b></td><td>18/5/2026</td><td class="n">60.000</td><td class="n">56</td><td><span class="pill p-fiado">No</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="faja num"><span>Vac:32 · Tor:3 · Vaq:86 · DM:243 · TM:7 · TH:14 · DH:20 · Total: 405</span><span>Total mes: 23.040.000 Gs.</span></div>
+  </div>
+</section>
+
+<!-- ============ VENTAS ============ -->
+<section id="ventas">
+  <h2 class="seccion">Ventas</h2>
+  <div class="nota">📌 <b>Cómo funciona:</b> al contado suma directo a los ingresos; <b>fiado</b> queda pendiente y pasa solo a <b>Cobros → Ventas fiadas</b>. Escribí el nombre o el RUC del cliente y el sistema lo encuentra (probá "despensa" o "8003").</div>
+
+  <div class="card">
+    <h3>Nueva venta</h3>
+    <div class="sub">El precio se completa solo al elegir el producto · el total se calcula en vivo</div>
+    <div class="form-grid">
+      <div class="campo"><label>Fecha *</label><input type="date" value="2026-07-13"></div>
+      <div class="campo ac" style="grid-column:span 2">
+        <label>Cliente *</label>
+        <input id="acIn" placeholder="Nombre, RUC o cédula… (o Consumidor final)" autocomplete="off">
+        <div class="ac-list" id="acLs"></div>
+        <div class="ac-ok" id="acOk"></div>
+      </div>
+      <div class="campo"><label>Producto *</label>
+        <select id="vP">
+          <option value="">Seleccionar…</option>
+          <option value="20000">🥚 Huevos — docena</option>
+          <option value="40000">🧀 Queso — kg</option>
+          <option value="20000">🥒 Pepinillos 500g — frasco</option>
+          <option value="32000">🥩 Carne — kg</option>
+        </select>
+      </div>
+      <div class="campo"><label>Cantidad *</label><input type="number" id="vC" min="0" step="0.5" placeholder="0"></div>
+      <div class="campo"><label>Precio unit. (Gs.)</label><input type="number" id="vPr" min="0" placeholder="0"></div>
+      <div class="campo"><label>Total</label><input id="vT" readonly value="0 Gs." class="num"></div>
+      <div class="campo"><label>Forma de pago *</label>
+        <select id="vFp">
+          <option value="ef">Contado — Efectivo</option>
+          <option value="tr">Contado — Transferencia</option>
+          <option value="fi">Fiado (a crédito)</option>
+        </select>
+        <div class="pista" id="vPi">⚠️ Quedará pendiente en <b>Cobros → Ventas fiadas</b>.</div>
+      </div>
+      <div class="campo" id="vVen" style="display:none"><label>Vencimiento</label><input type="date" value="2026-07-20"></div>
+    </div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <button class="btn" onclick="toast('Venta registrada (demo): quedaría a nombre del cliente en Supabase.')">Guardar venta</button>
+      <button class="btn btn-borde" onclick="toast('Se abriría la vista de impresión del ticket.')">Guardar e imprimir ticket</button>
+      <button class="btn btn-borde" onclick="abrir('m-prod')">+ Producción</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Productos a la venta</h3>
+    <div class="sub">Stock en vivo · en naranja los que están bajo el mínimo · se administran en Configuración → Productos</div>
+    <div class="chips num">
+      <div class="chip"><div class="cn">🥚 Huevos</div><div class="cp">20.000 Gs. / docena</div><div class="cs">Stock: <b>38 doc.</b> · mín. 20</div></div>
+      <div class="chip bajo"><div class="cn">🧀 Queso</div><div class="cp">40.000 Gs. / kg</div><div class="cs">Stock: <b class="al">2,5 kg</b> · mín. 5 ⚠️</div></div>
+      <div class="chip"><div class="cn">🥒 Pepinillos 500g</div><div class="cp">20.000 Gs. / frasco</div><div class="cs">Stock: <b>24 frascos</b> · mín. 10</div></div>
+      <div class="chip"><div class="cn">🥩 Carne</div><div class="cp">32.000 Gs. / kg</div><div class="cs">Por pedido (sin stock)</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Ventas recientes</h3>
+    <div class="sub">Tocá "Ver" para abrir el detalle en una ventana flotante</div>
+    <div class="tabla-wrap">
+      <table class="num">
+        <thead><tr><th>N°</th><th>Fecha</th><th>Cliente</th><th>Detalle</th><th class="n">Total</th><th>Pago</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>0151</td><td>13/7</td><td>María Duarte</td><td>Huevos · 10 doc.</td><td class="n"><b>200.000</b></td><td><span class="pill p-contado">Efectivo</span></td><td><span class="pill p-pagado">Pagada</span></td><td><button class="btn btn-azul btn-mini" onclick="abrir('m-venta')">Ver</button></td></tr>
+          <tr><td>0150</td><td>13/7</td><td>Consumidor final</td><td>Pepinillos · 6 frascos</td><td class="n"><b>120.000</b></td><td><span class="pill p-contado">Efectivo</span></td><td><span class="pill p-pagado">Pagada</span></td><td><button class="btn btn-azul btn-mini" onclick="abrir('m-venta')">Ver</button></td></tr>
+          <tr><td>0149</td><td>12/7</td><td>Tomas Mendoza G.</td><td>Queso · 4 kg</td><td class="n"><b>160.000</b></td><td><span class="pill p-transfer">Transfer.</span></td><td><span class="pill p-pagado">Pagada</span></td><td><button class="btn btn-azul btn-mini" onclick="abrir('m-venta')">Ver</button></td></tr>
+          <tr><td>0148</td><td>12/7</td><td>Despensa San José</td><td>Huevos · 30 doc.</td><td class="n"><b>540.000</b></td><td><span class="pill p-fiado">Fiado</span></td><td><span class="pill p-pendiente">Pendiente</span></td><td><button class="btn btn-azul btn-mini" onclick="abrir('m-venta')">Ver</button></td></tr>
+          <tr><td>0146</td><td>11/7</td><td>Carnicería El Norte</td><td>Carne · 25 kg</td><td class="n"><b>800.000</b></td><td><span class="pill p-fiado">Fiado</span></td><td><span class="pill p-pendiente">Pendiente</span></td><td><button class="btn btn-azul btn-mini" onclick="abrir('m-venta')">Ver</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="faja num"><span>Contado: 3.520.000 · Fiado: 1.340.000</span><span>Total del mes: 4.860.000 Gs.</span></div>
+  </div>
+</section>
+
+<!-- ============ COBROS ============ -->
+<section id="cobros">
+  <h2 class="seccion">Cobros</h2>
+  <div class="nota">📌 Acá solo aparece lo pendiente. La pestaña nueva <b>Ventas fiadas</b> recibe sola cada venta a crédito; las de contado nunca pasan por acá. Pagos, Recibos y Créditos de pastaje siguen igual.</div>
+  <div class="card">
+    <div class="tabs">
+      <button class="tab-btn" data-t="pagos">Pagos</button>
+      <button class="tab-btn" data-t="recibos">Recibos</button>
+      <button class="tab-btn" data-t="creditos">Créditos</button>
+      <button class="tab-btn on" data-t="fiadas">Ventas fiadas <span class="tag tag-nuevo" style="margin-left:4px">nuevo</span></button>
+    </div>
+    <div class="tab-panel on" data-p="fiadas">
+      <div class="tabla-wrap">
+        <table class="num">
+          <thead><tr><th>N°</th><th>Cliente</th><th>Detalle</th><th>Vence</th><th class="n">Total</th><th class="n">Cobrado</th><th class="n">Saldo</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>0148</td><td><b>Despensa San José</b></td><td>Huevos · 30 doc.</td><td>19/7/2026</td><td class="n">540.000</td><td class="n">0</td><td class="n"><b>540.000</b></td><td><button class="btn btn-mini" onclick="abrir('m-cobro')">Registrar cobro</button></td></tr>
+            <tr><td>0146</td><td><b>Carnicería El Norte</b></td><td>Carne · 25 kg</td><td>25/7/2026</td><td class="n">800.000</td><td class="n">0</td><td class="n"><b>800.000</b></td><td><button class="btn btn-mini" onclick="abrir('m-cobro')">Registrar cobro</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="faja num"><span>2 fiados pendientes</span><span>Saldo total: 1.340.000 Gs.</span></div>
+    </div>
+    <div class="tab-panel" data-p="pagos"><p style="font-size:13px;color:var(--gris);line-height:1.6">Los pagos de pastaje siguen exactamente igual. El detalle de cada pago se abre en una ventana flotante centrada, con su botón de descarga adentro.</p></div>
+    <div class="tab-panel" data-p="recibos"><p style="font-size:13px;color:var(--gris);line-height:1.6">Los recibos PDF se generan igual que hoy. Al completarse el cobro de una venta fiada, su recibo entra en la misma numeración.</p></div>
+    <div class="tab-panel" data-p="creditos"><p style="font-size:13px;color:var(--gris);line-height:1.6">Los pagos adelantados de pastaje no cambian.</p></div>
+  </div>
+</section>
+
+<!-- ============ GASTOS ============ -->
+<section id="gastos">
+  <h2 class="seccion">Gastos</h2>
+  <div class="nota">📌 <b>Todos los gastos van acá</b>, incluido el pago a proveedores. Como pagan todo al contado no hay cuentas por pagar: el campo <b>Pagado desde</b> (caja chica o banco) es el que después alimenta el módulo Caja y Bancos.</div>
+  <div class="card">
+    <h3>Nuevo gasto</h3>
+    <div class="form-grid">
+      <div class="campo"><label>Fecha *</label><input type="date" value="2026-07-13"></div>
+      <div class="campo"><label>Categoría *</label><select><option>Proveedores</option><option>Insumos de producción</option><option>Ganadería y veterinaria</option><option>Combustible</option><option>Administrativos</option><option>Comerciales</option><option>Mantenimiento</option></select></div>
+      <div class="campo"><label>Proveedor</label><input placeholder="Ej: Cooperativa Fernheim"></div>
+      <div class="campo" style="grid-column:span 2"><label>Descripción *</label><input placeholder="Ej: Balanceado ponedoras 40 bolsas"></div>
+      <div class="campo"><label>Monto (Gs.) *</label><input type="number" min="0" placeholder="0"></div>
+      <div class="campo"><label>Pagado desde *</label><select><option>Caja chica (efectivo)</option><option>Banco — Cuenta principal</option></select></div>
+      <div class="campo"><label>N° comprobante</label><input placeholder="Opcional"></div>
+    </div>
+    <button class="btn" onclick="toast('Gasto registrado (demo).')">Guardar gasto</button>
+  </div>
+  <div class="card">
+    <h3>Gastos de julio</h3>
+    <div class="sub">Filtros por categoría, proveedor, cuenta y fechas</div>
+    <div class="tabla-wrap">
+      <table class="num">
+        <thead><tr><th>Fecha</th><th>Categoría</th><th>Proveedor</th><th>Descripción</th><th>Desde</th><th class="n">Monto</th></tr></thead>
+        <tbody>
+          <tr><td>13/7</td><td><span class="pill p-cat">Proveedores</span></td><td>Coop. Fernheim</td><td>Balanceado ponedoras · 40 bolsas</td><td><span class="pill p-banco">Banco</span></td><td class="n"><b>2.800.000</b></td></tr>
+          <tr><td>12/7</td><td><span class="pill p-cat">Insumos prod.</span></td><td>Casa Rural SA</td><td>Frascos, tapas y vinagre</td><td><span class="pill p-caja">Caja chica</span></td><td class="n"><b>640.000</b></td></tr>
+          <tr><td>11/7</td><td><span class="pill p-cat">Combustible</span></td><td>Petropar Filadelfia</td><td>Diésel camioneta</td><td><span class="pill p-caja">Caja chica</span></td><td class="n"><b>450.000</b></td></tr>
+          <tr><td>10/7</td><td><span class="pill p-cat">Ganadería/Vet.</span></td><td>VetChaco</td><td>Vacunas y desparasitante</td><td><span class="pill p-banco">Banco</span></td><td class="n"><b>750.000</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="faja num"><span>14 gastos en julio</span><span>Total del mes: 6.240.000 Gs.</span></div>
+  </div>
+</section>
+
+<!-- ============ REPORTES ============ -->
+<section id="reportes">
+  <h2 class="seccion">Reportes</h2>
+  <div class="card">
+    <h3>Generar reporte</h3>
+    <div class="sub">Cada reporte se exporta a PDF (plantilla con logo) y a Excel real (.xlsx), además del CSV de siempre</div>
+    <div class="form-grid">
+      <div class="campo"><label>Tipo de reporte *</label>
+        <select>
+          <optgroup label="Ventas"><option>Ventas — detallado</option><option>Ventas — por producto</option><option>Ventas — por cliente</option></optgroup>
+          <optgroup label="Gastos"><option>Gastos — por categoría</option><option>Gastos — por proveedor</option></optgroup>
+          <optgroup label="Finanzas"><option>Ingresos vs gastos (resultado)</option><option>Cuentas por cobrar</option></optgroup>
+          <optgroup label="Ganadería"><option>Animales en pastura</option><option>Cobros de pastaje</option></optgroup>
+        </select>
+      </div>
+      <div class="campo"><label>Cliente</label><select><option>Todos</option><option>Despensa San José</option><option>Carnicería El Norte</option><option>Tomas Mendoza Gimenez</option></select></div>
+      <div class="campo"><label>Desde</label><input type="date" value="2026-07-01"></div>
+      <div class="campo"><label>Hasta</label><input type="date" value="2026-07-13"></div>
+    </div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <button class="btn btn-azul" onclick="toast('Generando vista previa…')">Generar</button>
+      <button class="btn btn-borde" onclick="toast('Abriría la vista de impresión con la plantilla PDF.')">Exportar PDF</button>
+      <button class="btn btn-borde" onclick="toast('Descargaría un .xlsx real (SheetJS).')">Exportar Excel</button>
+      <button class="btn btn-borde" onclick="toast('Descargaría el CSV, como hoy.')">CSV</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Vista previa · Ventas por producto</h3>
+    <div class="sub num">1 al 13 de julio de 2026 · Generado por marcos</div>
+    <div class="tabla-wrap">
+      <table class="num">
+        <thead><tr><th>Producto</th><th class="n">Cantidad</th><th class="n">Ventas (Gs.)</th><th class="n">%</th></tr></thead>
+        <tbody>
+          <tr><td>🥚 Huevos</td><td class="n">107 docenas</td><td class="n">2.150.000</td><td class="n">44%</td></tr>
+          <tr><td>🧀 Queso</td><td class="n">32 kg</td><td class="n">1.280.000</td><td class="n">26%</td></tr>
+          <tr><td>🥒 Pepinillos 500g</td><td class="n">41 frascos</td><td class="n">830.000</td><td class="n">17%</td></tr>
+          <tr><td>🥩 Carne</td><td class="n">19 kg</td><td class="n">600.000</td><td class="n">12%</td></tr>
+          <tr style="font-weight:700;background:#f8fafc"><td>Total</td><td class="n">—</td><td class="n">4.860.000</td><td class="n">100%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONFIGURACIÓN ============ -->
+<section id="config">
+  <h2 class="seccion">Configuración</h2>
+  <div class="card">
+    <div class="tabs">
+      <button class="tab-btn" data-t="cg">⚙️ General</button>
+      <button class="tab-btn" data-t="cc">🐄 Categorías</button>
+      <button class="tab-btn on" data-t="cp">🛒 Productos <span class="tag tag-nuevo" style="margin-left:4px">nuevo</span></button>
+      <button class="tab-btn" data-t="cgt">📤 Categorías de gastos <span class="tag tag-nuevo" style="margin-left:4px">nuevo</span></button>
+      <button class="tab-btn" data-t="cu">👥 Usuarios</button>
+    </div>
+    <div class="tab-panel on" data-p="cp">
+      <div class="tabla-wrap">
+        <table class="num">
+          <thead><tr><th>Producto</th><th>Unidad</th><th class="n">Precio</th><th class="n">Stock</th><th class="n">Mínimo</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><b>Huevos</b></td><td>Docena</td><td class="n">20.000</td><td class="n">38</td><td class="n">20</td><td><button class="btn btn-azul btn-mini">Editar</button></td></tr>
+            <tr><td><b>Queso</b></td><td>Kg</td><td class="n">40.000</td><td class="n">2,5</td><td class="n">5</td><td><button class="btn btn-azul btn-mini">Editar</button></td></tr>
+            <tr><td><b>Pepinillos 500g</b></td><td>Frasco</td><td class="n">20.000</td><td class="n">24</td><td class="n">10</td><td><button class="btn btn-azul btn-mini">Editar</button></td></tr>
+            <tr><td><b>Carne</b></td><td>Kg</td><td class="n">32.000</td><td class="n">—</td><td class="n">—</td><td><button class="btn btn-azul btn-mini">Editar</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <button class="btn" style="margin-top:12px" onclick="toast('Abriría el formulario de producto nuevo.')">+ Nuevo producto</button>
+    </div>
+    <div class="tab-panel" data-p="cg"><p style="font-size:13px;color:var(--gris)">Frases de bienvenida y ajustes generales, igual que hoy.</p></div>
+    <div class="tab-panel" data-p="cc"><p style="font-size:13px;color:var(--gris)">Categorías de animales por especie, igual que hoy.</p></div>
+    <div class="tab-panel" data-p="cgt"><p style="font-size:13px;color:var(--gris)">Proveedores, Insumos de producción, Combustible… editables como las categorías de animales.</p></div>
+    <div class="tab-panel" data-p="cu"><p style="font-size:13px;color:var(--gris)">Gestión de usuarios con los permisos nuevos: ver_ventas, crear_ventas, ver_gastos, crear_gastos, ver_stock, exportar_excel.</p></div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<!-- ============ MODALES ============ -->
+<div class="overlay" id="m-ficha">
+  <div class="modal lg">
+    <div class="m-head">
+      <div style="width:36px;height:36px;border-radius:50%;background:#dbeafe;color:var(--azul);display:flex;align-items:center;justify-content:center;font-weight:700">DS</div>
+      <div><h4>Despensa San José</h4><div style="font-size:11.5px;color:var(--gris)" class="num">RUC 80045678-1 · Filadelfia · <span class="pill p-pendiente">Ventas</span></div></div>
+      <button class="m-x" onclick="cerrar()">✕</button>
+    </div>
+    <div class="m-body">
+      <div class="tabs">
+        <button class="tab-btn" data-t="fd">Datos</button>
+        <button class="tab-btn on" data-t="fv">Ventas</button>
+        <button class="tab-btn" data-t="fc">Cuenta pendiente</button>
+      </div>
+      <div class="tab-panel" data-p="fd"><p style="font-size:13px;line-height:1.9" class="num">Teléfono: 0971456789 · Email: — · Dirección: Filadelfia<br>Cliente desde: 12/7/2026 · Registrado por: marcos</p></div>
+      <div class="tab-panel on" data-p="fv">
+        <table class="num">
+          <thead><tr><th>N°</th><th>Fecha</th><th>Detalle</th><th class="n">Total</th><th>Estado</th></tr></thead>
+          <tbody>
+            <tr><td>0148</td><td>12/7/2026</td><td>Huevos · 30 docenas</td><td class="n">540.000</td><td><span class="pill p-pendiente">Pendiente</span></td></tr>
+            <tr><td>0139</td><td>5/7/2026</td><td>Huevos · 30 docenas</td><td class="n">540.000</td><td><span class="pill p-pagado">Pagada</span></td></tr>
+            <tr><td>0131</td><td>28/6/2026</td><td>Huevos · 25 doc. + Pepinillos ×12</td><td class="n">690.000</td><td><span class="pill p-pagado">Pagada</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="tab-panel" data-p="fc"><p style="font-size:13px;line-height:1.8" class="num">Saldo fiado pendiente: <b style="color:#9a3412">540.000 Gs.</b> (venta 0148, vence 19/7/2026).</p></div>
+    </div>
+    <div class="m-pie">
+      <button class="btn btn-borde" onclick="toast('Iría al formulario de edición.')">Editar cliente</button>
+      <button class="btn" onclick="cerrar();irA('ventas')">Nueva venta a este cliente</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="m-venta">
+  <div class="modal">
+    <div class="m-head"><h4>Venta N° 0148 · Despensa San José</h4><button class="m-x" onclick="cerrar()">✕</button></div>
+    <div class="m-body num">
+      <p style="font-size:12.5px;color:var(--gris);margin-bottom:10px">12/7/2026 · <span class="pill p-fiado">Fiado</span> <span class="pill p-pendiente">Pendiente</span> · vence 19/7/2026 · registrado por dahianakrause</p>
+      <table>
+        <thead><tr><th>Producto</th><th class="n">Cant.</th><th class="n">P. unit.</th><th class="n">Subtotal</th></tr></thead>
+        <tbody>
+          <tr><td>🥚 Huevos (docena)</td><td class="n">30</td><td class="n">18.000</td><td class="n">540.000</td></tr>
+          <tr style="font-weight:700"><td colspan="3">Total</td><td class="n">540.000 Gs.</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12.5px;color:var(--gris);margin-top:10px">Cobros registrados: ninguno todavía · Saldo: <b>540.000 Gs.</b></p>
+    </div>
+    <div class="m-pie">
+      <button class="btn btn-borde" onclick="toast('Abriría el ticket imprimible con logo.')">Imprimir ticket</button>
+      <button class="btn btn-rojo" onclick="toast('Pediría doble confirmación y devolvería el stock.')">Anular</button>
+      <button class="btn" onclick="cerrar();abrir('m-cobro')">Registrar cobro</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="m-cobro">
+  <div class="modal">
+    <div class="m-head"><h4>Registrar cobro · Venta 0148</h4><button class="m-x" onclick="cerrar()">✕</button></div>
+    <div class="m-body">
+      <div class="form-grid" style="margin-bottom:0">
+        <div class="campo"><label>Fecha</label><input type="date" value="2026-07-13"></div>
+        <div class="campo"><label>Monto (Gs.)</label><input type="number" value="540000" class="num"></div>
+        <div class="campo"><label>Forma</label><select><option>Efectivo</option><option>Transferencia</option></select></div>
+        <div class="campo"><label>Entra a</label><select><option>Caja chica</option><option>Banco — Cuenta principal</option></select></div>
+      </div>
+      <p style="font-size:12px;color:var(--gris);margin-top:10px">Se puede cobrar parcial: el saldo restante sigue apareciendo acá. Al llegar a 0, la venta pasa a Pagada y se genera su recibo.</p>
+    </div>
+    <div class="m-pie">
+      <button class="btn btn-borde" onclick="cerrar()">Cancelar</button>
+      <button class="btn" onclick="cerrar();toast('Cobro registrado: la venta pasó a Pagada y se generó el recibo (demo).')">Confirmar cobro</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="m-prod">
+  <div class="modal">
+    <div class="m-head"><h4>Registrar producción</h4><button class="m-x" onclick="cerrar()">✕</button></div>
+    <div class="m-body">
+      <div class="form-grid" style="margin-bottom:0">
+        <div class="campo"><label>Producto</label><select><option>🥚 Huevos</option><option>🧀 Queso</option><option>🥒 Pepinillos 500g</option></select></div>
+        <div class="campo"><label>Cantidad</label><input type="number" placeholder="0" min="0" step="0.5"></div>
+        <div class="campo"><label>Fecha</label><input type="date" value="2026-07-13"></div>
+        <div class="campo" style="grid-column:1/-1"><label>Observación</label><input placeholder="Ej: juntada de la mañana"></div>
+      </div>
+      <p style="font-size:12px;color:var(--gris);margin-top:10px">Suma stock con un movimiento de "entrada por producción": el historial queda auditable y el stock nunca se edita a mano.</p>
+    </div>
+    <div class="m-pie">
+      <button class="btn btn-borde" onclick="cerrar()">Cancelar</button>
+      <button class="btn" onclick="cerrar();toast('Producción registrada: stock actualizado (demo).')">Guardar entrada</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="m-nuevoc">
+  <div class="modal">
+    <div class="m-head"><h4>Nuevo cliente</h4><button class="m-x" onclick="cerrar()">✕</button></div>
+    <div class="m-body">
+      <div class="form-grid" style="margin-bottom:0">
+        <div class="campo" style="grid-column:1/-1"><label>Nombre o razón social *</label><input id="ncNom"></div>
+        <div class="campo"><label>RUC</label><input></div>
+        <div class="campo"><label>Cédula</label><input></div>
+        <div class="campo"><label>Teléfono</label><input></div>
+        <div class="campo"><label>Tipo</label><select><option>Ventas</option><option>Pastaje</option><option>Pastaje + Ventas</option></select></div>
+      </div>
+    </div>
+    <div class="m-pie">
+      <button class="btn btn-borde" onclick="cerrar()">Cancelar</button>
+      <button class="btn" onclick="guardarNuevoCliente()">Guardar y usar en la venta</button>
+    </div>
+  </div>
+</div>
+
+<div class="cinta">Maqueta definitiva · datos de ejemplo</div>
+<div id="toast"></div>
+
+<script>
+/* Navegación */
+function irA(id){
+  document.querySelectorAll('main>section').forEach(s=>s.classList.toggle('vis',s.id===id));
+  document.querySelectorAll('[data-sec]').forEach(b=>b.classList.toggle('active',b.dataset.sec===id));
+  document.body.classList.remove('sbopen');
+  window.scrollTo({top:0});
+}
+document.querySelectorAll('[data-sec]').forEach(b=>b.addEventListener('click',()=>irA(b.dataset.sec)));
+
+/* Sidebar minimizable */
+const sbT=document.getElementById('sbT');
+sbT.addEventListener('click',()=>{
+  document.body.classList.toggle('min');
+  const m=document.body.classList.contains('min');
+  sbT.textContent=m?'›':'‹';
+  sbT.title=m?'Expandir menú':'Minimizar menú';
+});
+
+/* Pestañas */
+document.querySelectorAll('.tabs').forEach(g=>{
+  const bs=g.querySelectorAll('.tab-btn');
+  bs.forEach(b=>b.addEventListener('click',()=>{
+    bs.forEach(x=>x.classList.remove('on'));b.classList.add('on');
+    g.parentElement.querySelectorAll(':scope > .tab-panel').forEach(p=>p.classList.toggle('on',p.dataset.p===b.dataset.t));
+  }));
+});
+
+/* Modales */
+function abrir(id){document.getElementById(id).classList.add('open')}
+function cerrar(){document.querySelectorAll('.overlay.open').forEach(o=>o.classList.remove('open'))}
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)cerrar()}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')cerrar()});
+
+/* Tareas: agregar y eliminar */
+function borrarTarea(btn){
+  btn.parentElement.remove();
+  toast('Tarea eliminada (demo).');
+}
+function agregarTarea(){
+  const inp=document.getElementById('tIn');
+  if(!inp.value.trim())return;
+  const d=document.createElement('div');d.className='tarea';
+  d.innerHTML='<span class="cc" onclick="this.parentElement.classList.toggle(\'hecha\')"></span><span class="tt" onclick="this.parentElement.classList.toggle(\'hecha\')"></span><button class="tx" onclick="borrarTarea(this)">✕</button>';
+  d.querySelector('.tt').textContent=inp.value.trim();
+  document.getElementById('tareas').appendChild(d);
+  inp.value='';
+}
+
+/* Autocompletado de cliente (nombre / RUC / cédula) */
+const CLIENTES=[
+  {n:'Consumidor final',r:'',c:'',t:''},
+  {n:'Tomas Mendoza Gimenez',r:'5581700-9',c:'5581700',t:'Pastaje + Ventas'},
+  {n:'Despensa San José',r:'80045678-1',c:'',t:'Ventas'},
+  {n:'Carnicería El Norte',r:'80031234-5',c:'',t:'Ventas'},
+  {n:'María Duarte',r:'',c:'4123998',t:'Ventas'},
+  {n:'Alain Paul Henri Chassagne',r:'3548640-6',c:'3548640',t:'Pastaje'},
+];
+const acIn=document.getElementById('acIn'),acLs=document.getElementById('acLs'),acOk=document.getElementById('acOk');
+function norm(s){return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')}
+function pinta(lista){
+  acLs.innerHTML='';
+  lista.forEach(cl=>{
+    const d=document.createElement('div');d.className='ac-it';
+    d.innerHTML='<div class="an"></div><div class="as num"></div>';
+    d.querySelector('.an').textContent=cl.n;
+    d.querySelector('.as').textContent=(cl.r?('RUC '+cl.r):(cl.c?('C.I. '+cl.c):''))+(cl.t?(' · '+cl.t):'');
+    d.addEventListener('click',()=>elegir(cl));
+    acLs.appendChild(d);
+  });
+  const nuevo=document.createElement('div');
+  nuevo.className='ac-it crear';nuevo.textContent='＋ Crear cliente nuevo…';
+  nuevo.addEventListener('click',()=>{acLs.classList.remove('open');document.getElementById('ncNom').value=acIn.value;abrir('m-nuevoc')});
+  acLs.appendChild(nuevo);
+  acLs.classList.add('open');
+}
+function elegir(cl){
+  acIn.value=cl.n;acLs.classList.remove('open');
+  acOk.style.display='block';
+  acOk.textContent='✓ Cliente vinculado: '+cl.n+(cl.r?(' · RUC '+cl.r):'')+' — la venta queda a su nombre.';
+}
+acIn.addEventListener('input',()=>{
+  acOk.style.display='none';
+  const q=norm(acIn.value);
+  if(!q){acLs.classList.remove('open');return}
+  const res=CLIENTES.filter(cl=>norm(cl.n).includes(q)||cl.r.replace('-','').includes(q.replace('-',''))||cl.c.includes(q));
+  pinta(res);
+});
+acIn.addEventListener('focus',()=>{if(!acIn.value)pinta(CLIENTES)});
+document.addEventListener('mousedown',e=>{if(!e.target.closest('.ac'))acLs.classList.remove('open')});
+function guardarNuevoCliente(){
+  const n=document.getElementById('ncNom').value||'Cliente nuevo';
+  CLIENTES.push({n:n,r:'',c:'',t:'Ventas'});
+  cerrar();elegir({n:n,r:'',c:'',t:'Ventas'});
+  toast('Cliente creado y seleccionado en la venta (demo).');
+}
+
+/* Cálculo de venta */
+const vP=document.getElementById('vP'),vC=document.getElementById('vC'),vPr=document.getElementById('vPr'),
+      vT=document.getElementById('vT'),vFp=document.getElementById('vFp'),vPi=document.getElementById('vPi'),
+      vVen=document.getElementById('vVen');
+function calc(){vT.value=Math.round((parseFloat(vC.value)||0)*(parseFloat(vPr.value)||0)).toLocaleString('es-PY')+' Gs.'}
+vP.addEventListener('change',()=>{vPr.value=vP.value||'';calc()});
+[vC,vPr].forEach(i=>i.addEventListener('input',calc));
+vFp.addEventListener('change',()=>{
+  const f=vFp.value==='fi';
+  vPi.style.display=f?'block':'none';
+  vVen.style.display=f?'block':'none';
+});
+
+/* Toast */
+let tmr=null;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(tmr);tmr=setTimeout(()=>t.classList.remove('show'),2600);
+}
+</script>
+</body>
+</html>
