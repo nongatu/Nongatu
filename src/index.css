@@ -470,6 +470,7 @@ tr:hover td { background: var(--table-row-hover); }
 .badge-red { background: #fee2e2; color: #991b1b; }
 .badge-orange { background: #fed7aa; color: #9a3412; }
 .badge-blue { background: #dbeafe; color: #1e40af; }
+.badge-purple { background: #ede9fe; color: #5b21b6; }
 .badge-gray { background: #f3f4f6; color: #6b7280; }
 
 /* =============================================
@@ -1008,13 +1009,13 @@ tr:hover td { background: var(--table-row-hover); }
   .badge { font-size: 10px; padding: 2px 5px; }
 }
 
-/* Clientes: mostrar solo Nombre, RUC, Teléfono, Acciones */
+/* Clientes: mostrar solo Nombre, Tipo, RUC, Teléfono, Acciones */
 @media (max-width: 768px) {
   .table-clientes th:nth-child(1), .table-clientes td:nth-child(1),
-  .table-clientes th:nth-child(4), .table-clientes td:nth-child(4),
-  .table-clientes th:nth-child(6), .table-clientes td:nth-child(6),
+  .table-clientes th:nth-child(5), .table-clientes td:nth-child(5),
   .table-clientes th:nth-child(7), .table-clientes td:nth-child(7),
-  .table-clientes th:nth-child(8), .table-clientes td:nth-child(8) {
+  .table-clientes th:nth-child(8), .table-clientes td:nth-child(8),
+  .table-clientes th:nth-child(9), .table-clientes td:nth-child(9) {
     display: none;
   }
 }

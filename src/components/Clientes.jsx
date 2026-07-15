@@ -1,7 +1,19 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import ClienteFicha from './ClienteFicha.jsx'
 
-const EMPTY = { nombre_razon_social: '', cedula: '', ruc: '', direccion: '', telefono: '', email: '' }
+const EMPTY = { nombre_razon_social: '', cedula: '', ruc: '', direccion: '', telefono: '', email: '', tipo: 'pastaje' }
+
+const TIPO_OPTS = [
+  { value: 'pastaje', label: 'Pastaje' },
+  { value: 'ventas',  label: 'Ventas' },
+  { value: 'mixto',   label: 'Pastaje + Ventas' },
+]
+const TIPO_BADGE = {
+  pastaje: { cls: 'blue',   label: 'Pastaje' },
+  ventas:  { cls: 'orange', label: 'Ventas' },
+  mixto:   { cls: 'purple', label: 'Pastaje + Ventas' },
+}
 
 export default function Clientes({ user }) {
   const [lista, setLista] = useState([])
@@ -11,6 +23,7 @@ export default function Clientes({ user }) {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
   const [buscar, setBuscar] = useState('')
+  const [ficha, setFicha] = useState(null)
 
   const perms = user?.rol === 'Administrador' ? { todo: true } : (user?.permisos || {})
   const puedeEditar = perms.todo || perms.crear_editar_clientes
@@ -49,8 +62,11 @@ export default function Clientes({ user }) {
   }
 
   const editar = (c) => {
-    setForm({ nombre_razon_social: c.nombre_razon_social || '', cedula: c.cedula || '', ruc: c.ruc || '', direccion: c.direccion || '', telefono: c.telefono || '', email: c.email || '' })
-    setEditId(c.id); setMsg(null)
+    setForm({
+      nombre_razon_social: c.nombre_razon_social || '', cedula: c.cedula || '', ruc: c.ruc || '',
+      direccion: c.direccion || '', telefono: c.telefono || '', email: c.email || '', tipo: c.tipo || 'pastaje',
+    })
+    setEditId(c.id); setMsg(null); setFicha(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -100,6 +116,12 @@ export default function Clientes({ user }) {
               <label>Email</label>
               <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
             </div>
+            <div className="form-group">
+              <label>Tipo de cliente</label>
+              <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })}>
+                {TIPO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
           </div>
           <div className="btn-row">
             <button className="btn btn-green" onClick={guardar} disabled={saving}>
@@ -123,20 +145,30 @@ export default function Clientes({ user }) {
           <table className="table-clientes">
             <thead>
               <tr>
-                <th>ID</th><th>Nombre / Razón Social</th><th>RUC</th><th>Cédula</th>
+                <th>ID</th><th>Nombre / Razón Social</th><th>Tipo</th><th>RUC</th><th>Cédula</th>
                 <th>Teléfono</th><th>Dirección</th><th>Email</th><th>Fecha Alta</th>
                 {puedeEditar && <th>Acciones</th>}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="table-empty">Cargando...</td></tr>
+                <tr><td colSpan={10} className="table-empty">Cargando...</td></tr>
               ) : filtrados.length === 0 ? (
-                <tr><td colSpan={9} className="table-empty">Sin clientes registrados.</td></tr>
-              ) : filtrados.map(c => (
+                <tr><td colSpan={10} className="table-empty">Sin clientes registrados.</td></tr>
+              ) : filtrados.map(c => {
+                const tipo = TIPO_BADGE[c.tipo] || TIPO_BADGE.pastaje
+                return (
                 <tr key={c.id}>
                   <td>{c.id}</td>
-                  <td style={{ fontWeight: 600 }}>{c.nombre_razon_social}</td>
+                  <td>
+                    <button
+                      onClick={() => setFicha(c)}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 600, color: 'var(--blue)', textDecoration: 'none' }}
+                    >
+                      {c.nombre_razon_social}
+                    </button>
+                  </td>
+                  <td><span className={`badge badge-${tipo.cls}`}>{tipo.label}</span></td>
                   <td>{c.ruc || '-'}</td>
                   <td>{c.cedula || '-'}</td>
                   <td>{c.telefono || '-'}</td>
@@ -154,11 +186,20 @@ export default function Clientes({ user }) {
                     </td>
                   )}
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
       </div>
+
+      {ficha && (
+        <ClienteFicha
+          cliente={ficha}
+          onClose={() => setFicha(null)}
+          onEditar={(c) => editar(c)}
+        />
+      )}
     </div>
   )
 }

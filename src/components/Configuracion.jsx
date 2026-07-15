@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import Usuarios from './Usuarios'
 import Categorias from './Categorias'
+import Productos from './Productos'
+import CategoriasGasto from './CategoriasGasto'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 const DIAS_SEMANA = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
@@ -13,9 +15,11 @@ const REPETIR_OPTS = [
 ]
 
 const TABS = [
-  { key: 'general',    label: '⚙️ General' },
-  { key: 'categorias', label: '🐄 Categorías' },
-  { key: 'usuarios',   label: '👥 Usuarios' },
+  { key: 'general',        label: '⚙️ General' },
+  { key: 'categorias',     label: '🐄 Categorías' },
+  { key: 'productos',      label: '🛒 Productos' },
+  { key: 'gastos_cat',     label: '📤 Categorías de gastos' },
+  { key: 'usuarios',       label: '👥 Usuarios' },
 ]
 
 // ── Lógica de frases compartida ───────────────────────────────────────────────
@@ -174,6 +178,12 @@ export default function Configuracion({ user }) {
 
       {/* ── Tab: Categorías ── */}
       {tab === 'categorias' && <Categorias user={user} />}
+
+      {/* ── Tab: Productos ── */}
+      {tab === 'productos' && <Productos />}
+
+      {/* ── Tab: Categorías de gastos ── */}
+      {tab === 'gastos_cat' && <CategoriasGasto />}
 
       {/* ── Tab: Usuarios ── */}
       {tab === 'usuarios' && <Usuarios user={user} />}
