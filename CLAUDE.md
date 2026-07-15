@@ -27,7 +27,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Permisos**: cada usuario tiene un campo JSONB `permisos` (tabla `usuarios`) con flags booleanos (`ver_clientes`, `generar_cobros`, `exportar_pdf`, etc.). `Layout.jsx` (función `canSee`) filtra qué secciones del menú se muestran según esos permisos; el rol `'Administrador'` tiene acceso total.
 - **Lógica de negocio en el frontend**: el cálculo de cobros (proporcional por fecha de inicio, separación de categorías cobrables, IVA = total/11) vive en `Cobros.jsx`, no en la base de datos ni en funciones de servidor.
 - **Utilidades compartidas**: `src/utils/helpers.js` (formato de guaraníes `gs()`, manejo de fechas/períodos en formato `YYYY-MM`).
-- **Deploy**: Netlify, `netlify.toml` define build (`npm run build` → `dist`) y redirect SPA (`/* → /index.html`).
+- **Deploy**: el repo vive en GitHub y Netlify tiene el deploy automático conectado (build en cada push). `netlify.toml` define build (`npm run build` → `dist`) y redirect SPA (`/* → /index.html`).
+- **NUNCA commitear `node_modules/` ni `dist/`**: deben estar siempre en `.gitignore`. Si por error quedan trackeados (por un commit hecho fuera de Claude Code, un merge, etc.), Netlify falla el build con `vite: Permission denied` (el binario pierde el bit de ejecución al pasar por git en Windows). Antes de investigar un fallo de build en Netlify, revisar primero con `git ls-tree -r <rama> --name-only | grep -E "^(node_modules|dist)/"` si se coló alguno de los dos; si aparece, limpiar con `git rm -r --cached node_modules dist`, confirmar `.gitignore`, commitear y recién ahí buscar otra causa.
 
 ## Reglas — Módulos Ventas y Gastos (Ñongatu)
 - NUNCA ejecutar ni proponer DROP, TRUNCATE ni DELETE sobre tablas o datos existentes de Supabase.
