@@ -695,6 +695,10 @@ tr:hover td { background: var(--table-row-hover); }
   gap: 12px;
   margin-bottom: 18px;
 }
+.cobro-cards.cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1024px) {
+  .cobro-cards.cols-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .cobro-card {
   background: var(--card-bg);
   border-radius: 10px;
