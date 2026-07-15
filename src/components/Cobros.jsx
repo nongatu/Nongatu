@@ -53,23 +53,43 @@ function tablaCaja(totalCobro, fechaCobro, periodoStr, pagos) {
 }
 
 // ── HTML Recibo — 2 copias (ORIGINAL: CLIENTE / COPIA: CONTABILIDAD) ─────────
+// `detalle` puede venir en dos formas: un array de cobro_detalles (pastaje, como
+// siempre) o un objeto { origen:'venta', numero_venta, items } cuando el recibo
+// corresponde al cobro de una venta de productos fiada.
 function htmlRecibo(recibo, cliente, detalle, pagos=[]) {
-  const periodoStr = periodoLabel(recibo.periodo || '')
-  const filas = (detalle||[]).filter(d=>d.cantidad>0).map(d=>
-    `<tr>
-      <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc">${d.categorias?.nombre||''}</td>
-      <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:center">${d.cantidad}</td>
-      <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right">${gs(d.precio_unitario||0)} Gs.</td>
-      <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right">${gs(d.subtotal||0)} Gs.</td>
-    </tr>`
-  ).join('')
+  const esVenta = !!(detalle && !Array.isArray(detalle) && detalle.origen === 'venta')
+  const periodoStr = esVenta ? '' : periodoLabel(recibo.periodo || '')
+  const tituloSeccion = esVenta ? 'Detalle de productos' : 'Detalle de animales'
+  const colProducto   = esVenta ? 'Producto' : 'Categoría'
+  const colTotal       = esVenta ? 'Subtotal' : 'Total período'
+  const concepto = esVenta
+    ? `Venta de productos N° ${String(detalle.numero_venta||'').padStart(4,'0')}`
+    : `Alquiler de Pastura — ${periodoStr}`
 
-  const totalCobro  = (detalle||[]).filter(d=>d.cantidad>0).reduce((s,d)=>s+Number(d.subtotal||0),0)
-  const totalPagado = pagos.reduce((s,p)=>s+Number(p.monto),0)
+  const filas = esVenta
+    ? (detalle.items||[]).map(it=>
+        `<tr>
+          <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc">${it.nombre||''}</td>
+          <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:center">${it.cantidad}</td>
+          <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right">${gs(it.precio_unitario||0)} Gs.</td>
+          <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right">${gs(it.subtotal||0)} Gs.</td>
+        </tr>`
+      ).join('')
+    : (detalle||[]).filter(d=>d.cantidad>0).map(d=>
+        `<tr>
+          <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc">${d.categorias?.nombre||''}</td>
+          <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:center">${d.cantidad}</td>
+          <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right">${gs(d.precio_unitario||0)} Gs.</td>
+          <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right">${gs(d.subtotal||0)} Gs.</td>
+        </tr>`
+      ).join('')
+
+  const totalCobro  = esVenta ? Number(recibo.total||0) : (detalle||[]).filter(d=>d.cantidad>0).reduce((s,d)=>s+Number(d.subtotal||0),0)
+  const totalPagado = esVenta ? Number(recibo.total||0) : pagos.reduce((s,p)=>s+Number(p.monto),0)
   const saldo       = totalCobro - totalPagado
   const fechaRecibo = recibo.fecha ? recibo.fecha+'T00:00:00' : new Date().toISOString()
 
-  const movCaja = pagos.length > 0
+  const movCaja = (!esVenta && pagos.length > 0)
     ? `<div style="margin-top:12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-top:1px solid #bbb;padding-top:8px;margin-bottom:5px">Movimiento de cuenta</div>
        ${tablaCaja(totalCobro, fechaRecibo, periodoStr, pagos)}
        <div style="text-align:right;margin-top:5px;font-size:11px;font-weight:700;color:${saldo<=0?'#056':'#c00'}">
@@ -96,19 +116,19 @@ function htmlRecibo(recibo, cliente, detalle, pagos=[]) {
       <tr><td style="font-weight:700;width:130px;padding:2px 3px;font-size:11px">Fecha:</td><td style="padding:2px 3px;font-size:11px">${new Date(fechaRecibo).toLocaleDateString('es-PY')}</td></tr>
       <tr><td style="font-weight:700;padding:2px 3px;font-size:11px">Recibimos de:</td><td style="padding:2px 3px;font-size:11px;font-weight:700">${cliente}</td></tr>
       <tr><td style="font-weight:700;padding:2px 3px;font-size:11px">Importe en letras:</td><td style="padding:2px 3px;font-size:11px">${enLetras(totalPagado)}</td></tr>
-      <tr><td style="font-weight:700;padding:2px 3px;font-size:11px">Concepto:</td><td style="padding:2px 3px;font-size:11px">Alquiler de Pastura — ${periodoStr}</td></tr>
+      <tr><td style="font-weight:700;padding:2px 3px;font-size:11px">Concepto:</td><td style="padding:2px 3px;font-size:11px">${concepto}</td></tr>
     </table>
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;margin-bottom:4px">Detalle de animales</div>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;margin-bottom:4px">${tituloSeccion}</div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
       <thead><tr>
-        <th style="padding:3px 5px;font-size:10px;border:1px solid #ccc;background:#f0f0f0;text-align:left">Categoría</th>
+        <th style="padding:3px 5px;font-size:10px;border:1px solid #ccc;background:#f0f0f0;text-align:left">${colProducto}</th>
         <th style="padding:3px 5px;font-size:10px;border:1px solid #ccc;background:#f0f0f0;text-align:center">Cant.</th>
         <th style="padding:3px 5px;font-size:10px;border:1px solid #ccc;background:#f0f0f0;text-align:right">Precio</th>
-        <th style="padding:3px 5px;font-size:10px;border:1px solid #ccc;background:#f0f0f0;text-align:right">Total período</th>
+        <th style="padding:3px 5px;font-size:10px;border:1px solid #ccc;background:#f0f0f0;text-align:right">${colTotal}</th>
       </tr></thead>
       <tbody>
         ${filas}
-        <tr><td colspan="3" style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right;font-weight:700">TOTAL DEL PERÍODO:</td>
+        <tr><td colspan="3" style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right;font-weight:700">TOTAL:</td>
             <td style="padding:3px 5px;font-size:10px;border:1px solid #ccc;text-align:right;font-weight:700">${gs(totalCobro)} Gs.</td></tr>
       </tbody>
     </table>
@@ -118,7 +138,7 @@ function htmlRecibo(recibo, cliente, detalle, pagos=[]) {
   </div>`
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-  <title>Recibo ${periodoStr}</title>
+  <title>Recibo ${esVenta ? ('Venta N° '+String(detalle.numero_venta||'').padStart(4,'0')) : periodoStr}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Arial,sans-serif;font-size:12px;background:#e5e5e5;padding:14px}
@@ -347,6 +367,10 @@ export default function Cobros({ user }) {
   const [seleccionadosCreditos, setSeleccionadosCreditos] = useState(new Set())
   const [movimientos, setMovimientos] = useState([])
   const [modalRedirigir, setModalRedirigir] = useState(null)
+  const [ventasFiadas, setVentasFiadas] = useState([])
+  const [cuentasPago, setCuentasPago] = useState([])
+  const [modalCobroVenta, setModalCobroVenta] = useState(null)
+  const [cobroVentaForm, setCobroVentaForm] = useState({})
 
   const perms = user?.rol==='Administrador'?{todo:true}:(user?.permisos||{})
   const puedeGenerar = perms.todo||perms.generar_cobros
@@ -360,6 +384,8 @@ export default function Cobros({ user }) {
       supabase.from('movimientos').select('animal_id,cliente_id,tipo,categoria_anterior_id,cantidad,precio_nuevo,fecha').eq('tipo','baja'),
     ]).then(([{data:cl},{data:an},{data:mv}])=>{ setClientes(cl||[]); setAnimales(an||[]); setMovimientos(mv||[]) })
     cargar()
+    supabase.from('cuentas_pago').select('*').eq('activo',true).order('nombre').then(({data})=>setCuentasPago(data||[]))
+    cargarVentasFiadas()
   },[])
 
   const cargar = async () => {
@@ -373,6 +399,62 @@ export default function Cobros({ user }) {
     setLoading(false)
   }
 
+  // ── Ventas fiadas (conexión con el módulo Ventas) ─────────────────────────
+  const cargarVentasFiadas = async () => {
+    const { data } = await supabase.from('ventas')
+      .select('id,numero,fecha,cliente_id,cliente_nombre,total,estado,fecha_vencimiento,venta_items(*,productos(nombre,unidad)),venta_cobros(*)')
+      .eq('estado','pendiente')
+      .order('fecha_vencimiento')
+    setVentasFiadas(data||[])
+  }
+
+  const abrirCobroVenta = (venta) => {
+    const cobrado = venta.venta_cobros?.reduce((s,vc)=>s+Number(vc.monto),0)||0
+    const saldo = Number(venta.total)-cobrado
+    setCobroVentaForm({ fecha:new Date().toISOString().split('T')[0], monto:String(saldo), forma:'efectivo', cuenta_id:'' })
+    setModalCobroVenta(venta)
+  }
+
+  const registrarCobroVenta = async () => {
+    const venta = modalCobroVenta
+    const { fecha, monto, forma, cuenta_id } = cobroVentaForm
+    if (!monto||Number(monto)<=0) return setMsg({type:'error',text:'Ingresá un monto válido.'})
+    if (forma==='transferencia'&&!cuenta_id) return setMsg({type:'error',text:'Seleccioná la cuenta.'})
+    setProcesando(true); setMsg(null)
+    const montoNum = Number(monto)
+    const { error } = await supabase.from('venta_cobros').insert({
+      venta_id: venta.id, fecha, monto: montoNum, forma,
+      cuenta_id: forma==='transferencia'?parseInt(cuenta_id):null,
+      usuario: user?.nombre_usuario,
+    })
+    if (error) { setProcesando(false); return setMsg({type:'error',text:'Error al registrar el cobro.'}) }
+
+    const cobradoPrevio = venta.venta_cobros?.reduce((s,vc)=>s+Number(vc.monto),0)||0
+    const saldoRestante = Number(venta.total) - (cobradoPrevio + montoNum)
+
+    if (saldoRestante <= 0) {
+      await supabase.from('ventas').update({estado:'pagada'}).eq('id',venta.id)
+      const { data: recActuales } = await supabase.from('recibos').select('id').order('id',{ascending:false}).limit(1)
+      const maxId = recActuales?.[0]?.id||0
+      const numero = String(maxId+1).padStart(6,'0')
+      await supabase.from('recibos').insert({
+        numero, fecha, cliente_id: venta.cliente_id, total: Number(venta.total),
+        detalle: {
+          origen: 'venta', venta_id: venta.id, numero_venta: venta.numero, cliente_nombre: venta.cliente_nombre,
+          items: (venta.venta_items||[]).map(it => ({
+            nombre: it.productos?.nombre||'', unidad: it.productos?.unidad||'',
+            cantidad: it.cantidad, precio_unitario: it.precio_unitario, subtotal: it.subtotal,
+          })),
+        },
+      })
+    }
+    setModalCobroVenta(null)
+    setMsg({type:'success', text: saldoRestante<=0 ? 'Cobro registrado. La venta quedó pagada y se generó el recibo.' : 'Cobro parcial registrado.'})
+    await cargarVentasFiadas()
+    await cargar()
+    setProcesando(false)
+  }
+
   const faltantes = calcularPeriodosFaltantes(animales, cobros, clientes, movimientos)
 
   const _pag = c => c.pagos?.reduce((s,p)=>s+Number(p.monto),0)||0
@@ -381,6 +463,10 @@ export default function Cobros({ user }) {
     mes:      cobros.filter(c=>c.periodo===periodoActual()).reduce((s,c)=>s+Number(c.total),0),
     parcial:  cobros.filter(c=>c.estado==='parcial').reduce((s,c)=>s+_pag(c), 0),
     pendiente:cobros.reduce((s,c)=>s+Math.max(0,Number(c.total)-_pag(c)), 0),
+    ventasFiadas: ventasFiadas.reduce((s,v)=>{
+      const cobrado = v.venta_cobros?.reduce((ss,vc)=>ss+Number(vc.monto),0)||0
+      return s+Math.max(0,Number(v.total)-cobrado)
+    }, 0),
   }
 
   const generarFaltantes = async () => {
@@ -876,12 +962,11 @@ export default function Cobros({ user }) {
   }
 
   const verPDF = async r => {
-    const {data:pagosData} = await supabase.from('pagos')
-      .select('monto,tipo,fecha_pago,medio_pago')
-      .eq('cobro_id', r.cobro_id)
-      .order('fecha_pago')
+    const pagosData = r.cobro_id
+      ? (await supabase.from('pagos').select('monto,tipo,fecha_pago,medio_pago').eq('cobro_id', r.cobro_id).order('fecha_pago')).data
+      : []
     const w = window.open('','_blank')
-    w.document.write(htmlRecibo({...r,periodo:r.cobros?.periodo||''},r.clientes?.nombre_razon_social||'',r.detalle||[],pagosData||[]))
+    w.document.write(htmlRecibo({...r,periodo:r.cobros?.periodo||''},r.clientes?.nombre_razon_social||r.detalle?.cliente_nombre||'',r.detalle||[],pagosData||[]))
     w.document.close()
   }
 
@@ -956,17 +1041,19 @@ export default function Cobros({ user }) {
         </div>
       )}
 
-      <div className="cobro-cards">
+      <div className="cobro-cards cols-5">
         <div className="cobro-card"><div className="label">Total cobrado</div><div className="value green">{gs(stats.pagado)} Gs.</div></div>
         <div className="cobro-card"><div className="label">Total del mes</div><div className="value blue">{gs(stats.mes)} Gs.</div></div>
         <div className="cobro-card"><div className="label">Cobrado parcial</div><div className="value orange">{gs(stats.parcial)} Gs.</div></div>
         <div className="cobro-card"><div className="label">Total pendiente</div><div className="value red">{gs(stats.pendiente)} Gs.</div></div>
+        <div className="cobro-card"><div className="label">Ventas fiadas</div><div className="value orange">{gs(stats.ventasFiadas)} Gs.</div></div>
       </div>
 
       <div className="tabs">
         <button className={`tab-btn ${tab==='pagos'?'active':''}`} onClick={()=>setTab('pagos')}>Pagos</button>
         <button className={`tab-btn ${tab==='recibos'?'active':''}`} onClick={()=>setTab('recibos')}>Recibos</button>
         <button className={`tab-btn ${tab==='creditos'?'active':''}`} onClick={()=>setTab('creditos')}>Créditos</button>
+        <button className={`tab-btn ${tab==='ventasfiadas'?'active':''}`} onClick={()=>setTab('ventasfiadas')}>Ventas fiadas</button>
       </div>
 
       {msg&&<div className={`alert alert-${msg.type}`}>{msg.text}</div>}
@@ -1113,7 +1200,7 @@ export default function Cobros({ user }) {
                       {puedeEliminar&&<td style={{textAlign:'center'}}><input type="checkbox" checked={seleccionadosRecibos.has(r.id)} onChange={()=>toggleRec(r.id)} style={{cursor:'pointer'}}/></td>}
                       <td style={{fontWeight:700}}>{String(r.numero||'').padStart(6,'0')}</td>
                       <td>{r.clientes?.nombre_razon_social}</td>
-                      <td>{periodoLabel(r.cobros?.periodo||'')}</td>
+                      <td>{r.cobros?.periodo ? periodoLabel(r.cobros.periodo) : (r.detalle?.origen==='venta' ? `Venta N° ${String(r.detalle.numero_venta||'').padStart(4,'0')}` : '-')}</td>
                       <td>{new Date((r.fecha||'')+'T00:00:00').toLocaleDateString('es-PY')}</td>
                       <td>{gs(r.total)} Gs.</td>
                       <td><button className="btn btn-blue btn-sm" onClick={()=>verPDF(r)}>Ver PDF</button></td>
@@ -1253,6 +1340,44 @@ export default function Cobros({ user }) {
         </>
       )})()}
 
+      {/* ── VENTAS FIADAS ── */}
+      {tab==='ventasfiadas'&&(
+        <div className="table-container"><div className="table-wrapper">
+          <table>
+            <thead><tr>
+              <th>N°</th><th>Cliente</th><th>Detalle</th><th>Fecha</th><th>Vencimiento</th><th>Total</th><th>Cobrado</th><th>Saldo</th><th>Acciones</th>
+            </tr></thead>
+            <tbody>
+              {ventasFiadas.length===0
+                ? <tr><td colSpan={9} className="table-empty">Sin ventas fiadas pendientes.</td></tr>
+                : ventasFiadas.map(v=>{
+                  const cobrado = v.venta_cobros?.reduce((s,vc)=>s+Number(vc.monto),0)||0
+                  const saldo = Number(v.total)-cobrado
+                  const vencida = v.fecha_vencimiento && new Date(v.fecha_vencimiento) < new Date()
+                  const detalle = (v.venta_items||[]).map(it=>`${it.productos?.nombre||''} ×${it.cantidad}`).join(', ')
+                  return (
+                    <tr key={v.id} style={{background:vencida?'#fff5f5':''}}>
+                      <td>{String(v.numero).padStart(4,'0')}</td>
+                      <td style={{fontWeight:600}}>{v.cliente_nombre}</td>
+                      <td style={{maxWidth:220,whiteSpace:'normal'}}>{detalle}</td>
+                      <td>{new Date(v.fecha+'T00:00:00').toLocaleDateString('es-PY')}</td>
+                      <td style={{color:vencida?'var(--red)':undefined,fontWeight:vencida?700:400}}>
+                        {v.fecha_vencimiento ? new Date(v.fecha_vencimiento+'T00:00:00').toLocaleDateString('es-PY') : '-'}
+                        {vencida && <span className="badge badge-red" style={{marginLeft:4}}>Vencida</span>}
+                      </td>
+                      <td>{gs(v.total)} Gs.</td>
+                      <td>{gs(cobrado)} Gs.</td>
+                      <td style={{fontWeight:600,color:saldo>0?'var(--red)':'var(--green)'}}>{gs(saldo)} Gs.</td>
+                      <td>{puedeRegistrar&&<button className="btn btn-green btn-sm" onClick={()=>abrirCobroVenta(v)}>Registrar cobro</button>}</td>
+                    </tr>
+                  )
+                })
+              }
+            </tbody>
+          </table>
+        </div></div>
+      )}
+
       {/* ── MODAL PAGO ── */}
       {modal==='pago'&&(
         <div className="modal-overlay"><div className="modal">
@@ -1334,6 +1459,46 @@ export default function Cobros({ user }) {
           <div className="modal-footer">
             <button className="btn btn-outline" onClick={()=>setModal(null)}>Cancelar</button>
             <button className="btn btn-purple" onClick={registrarCredito}>Guardar crédito</button>
+          </div>
+        </div></div>
+      )}
+
+      {/* ── MODAL REGISTRAR COBRO DE VENTA FIADA ── */}
+      {modalCobroVenta&&(
+        <div className="modal-overlay"><div className="modal">
+          <h3>Registrar cobro</h3>
+          <p style={{marginBottom:4,fontSize:14}}>Cliente: <strong>{modalCobroVenta.cliente_nombre}</strong></p>
+          <p style={{marginBottom:4,fontSize:14}}>Venta N°: <strong>{String(modalCobroVenta.numero).padStart(4,'0')}</strong></p>
+          <p style={{marginBottom:16,fontSize:14,color:'var(--red)'}}>
+            Saldo: <strong>{gs(Number(modalCobroVenta.total) - (modalCobroVenta.venta_cobros?.reduce((s,vc)=>s+Number(vc.monto),0)||0))} Gs.</strong>
+          </p>
+          <div className="form-group" style={{marginBottom:14}}>
+            <label>Fecha *</label>
+            <input type="date" value={cobroVentaForm.fecha} onChange={e=>setCobroVentaForm({...cobroVentaForm,fecha:e.target.value})}/>
+          </div>
+          <div className="form-group" style={{marginBottom:14}}>
+            <label>Monto (Gs.) *</label>
+            <input type="number" min="1" value={cobroVentaForm.monto} onChange={e=>setCobroVentaForm({...cobroVentaForm,monto:e.target.value})}/>
+          </div>
+          <div className="form-group" style={{marginBottom:14}}>
+            <label>Forma de pago *</label>
+            <select value={cobroVentaForm.forma} onChange={e=>setCobroVentaForm({...cobroVentaForm,forma:e.target.value,cuenta_id:''})}>
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia</option>
+            </select>
+          </div>
+          {cobroVentaForm.forma==='transferencia'&&(
+            <div className="form-group" style={{marginBottom:20}}>
+              <label>Cuenta *</label>
+              <select value={cobroVentaForm.cuenta_id} onChange={e=>setCobroVentaForm({...cobroVentaForm,cuenta_id:e.target.value})}>
+                <option value="">Seleccionar...</option>
+                {cuentasPago.map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </div>
+          )}
+          <div className="modal-footer">
+            <button className="btn btn-outline" onClick={()=>setModalCobroVenta(null)}>Cancelar</button>
+            <button className="btn btn-green" onClick={registrarCobroVenta} disabled={procesando}>{procesando?'Procesando...':'Confirmar cobro'}</button>
           </div>
         </div></div>
       )}
