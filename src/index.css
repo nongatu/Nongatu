@@ -708,6 +708,68 @@ tr:hover td { background: var(--table-row-hover); }
 .cobro-card .value.orange { color: var(--orange); }
 .cobro-card .value.blue { color: var(--blue); }
 
+/* =============================================
+   DASHBOARD (Inicio) — grid a la altura de pantalla
+   ============================================= */
+.dash-shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 40px);
+  gap: 10px;
+  overflow: hidden;
+}
+.dash-stats { flex-shrink: 0; }
+.dash-body {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.dash-col {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+.dash-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  min-height: 0;
+}
+.dash-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 13px 16px;
+  min-height: 0;
+}
+.dash-card-flex {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.dash-scroll {
+  overflow-y: auto;
+  min-height: 0;
+}
+@media (max-width: 1080px) {
+  .dash-shell { height: auto; overflow: visible; }
+  .dash-body { grid-template-columns: 1fr; overflow: visible; }
+  .dash-row2 { grid-template-columns: 1fr 1fr; }
+  .dash-col { display: flex; flex-direction: column; overflow: visible; }
+  .dash-card-flex { height: auto; overflow: visible; }
+  .dash-scroll { overflow-y: visible; max-height: none; }
+}
+@media (max-width: 640px) {
+  .dash-row2 { grid-template-columns: 1fr; }
+}
+
+.metric-card.purple { background: linear-gradient(135deg,#a78bfa,#7c3aed); }
+
 .spinner { display: flex; justify-content: center; padding: 40px; }
 .spinner::after {
   content: '';
