@@ -721,7 +721,7 @@ tr:hover td { background: var(--table-row-hover); }
 .dash-stats { flex-shrink: 0; }
 .dash-body {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 10px;
   flex: 1;
   min-height: 0;
@@ -731,11 +731,12 @@ tr:hover td { background: var(--table-row-hover); }
   display: grid;
   gap: 10px;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 .dash-row2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
   min-height: 0;
 }
@@ -745,11 +746,14 @@ tr:hover td { background: var(--table-row-hover); }
   border-radius: 14px;
   padding: 13px 16px;
   min-height: 0;
+  min-width: 0;
 }
 .dash-card-flex {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 .dash-scroll {
