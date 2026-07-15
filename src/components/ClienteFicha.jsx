@@ -13,19 +13,23 @@ const TABS = [
   { key: 'datos',    label: 'Datos' },
   { key: 'animales', label: 'Animales en pastura' },
   { key: 'cobros',   label: 'Historial de cobros' },
+  { key: 'ventas',   label: 'Ventas' },
 ]
+
+const FORMA_LABEL = { efectivo: 'Efectivo', transferencia: 'Transferencia', fiado: 'Fiado' }
 
 export default function ClienteFicha({ cliente, onClose, onEditar }) {
   const [tab, setTab] = useState('datos')
   const [animales, setAnimales] = useState([])
   const [cobros, setCobros] = useState([])
+  const [ventas, setVentas] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { cargar() }, [cliente.id])
 
   const cargar = async () => {
     setLoading(true)
-    const [{ data: an }, { data: cb }] = await Promise.all([
+    const [{ data: an }, { data: cb }, { data: vt }] = await Promise.all([
       supabase.from('animales')
         .select('cantidad,fecha_ingreso,precio,categorias(nombre,especies(nombre))')
         .eq('cliente_id', cliente.id).eq('estado', 'activo'),
@@ -33,11 +37,21 @@ export default function ClienteFicha({ cliente, onClose, onEditar }) {
         .select('id,periodo,total,estado,pagos(monto)')
         .eq('cliente_id', cliente.id)
         .order('periodo', { ascending: false }),
+      supabase.from('ventas')
+        .select('id,numero,fecha,total,estado,forma_pago,venta_cobros(monto)')
+        .eq('cliente_id', cliente.id)
+        .order('id', { ascending: false }),
     ])
     setAnimales(an || [])
     setCobros(cb || [])
+    setVentas(vt || [])
     setLoading(false)
   }
+
+  const saldoFiado = ventas.filter(v => v.estado === 'pendiente').reduce((s, v) => {
+    const cobrado = v.venta_cobros?.reduce((ss, vc) => ss + Number(vc.monto), 0) || 0
+    return s + Math.max(0, Number(v.total) - cobrado)
+  }, 0)
 
   const tipo = TIPO_BADGE[cliente.tipo] || TIPO_BADGE.pastaje
   const iniciales = (cliente.nombre_razon_social || '?').trim().slice(0, 2).toUpperCase()
@@ -139,6 +153,41 @@ export default function ClienteFicha({ cliente, onClose, onEditar }) {
               </tbody>
             </table>
           </div>
+        )
+      )}
+      {tab === 'ventas' && (
+        loading ? <div className="spinner" /> : (
+          <>
+            <div style={{ fontSize: 13, marginBottom: 10 }}>
+              Saldo fiado pendiente: <b style={{ color: saldoFiado > 0 ? 'var(--red)' : 'var(--green)' }}>{gs(saldoFiado)} Gs.</b>
+            </div>
+            {ventas.length === 0 ? (
+              <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Sin ventas registradas.</p>
+            ) : (
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr><th>N°</th><th>Fecha</th><th>Total</th><th>Forma de pago</th><th>Estado</th></tr>
+                  </thead>
+                  <tbody>
+                    {ventas.map(v => (
+                      <tr key={v.id}>
+                        <td>{String(v.numero).padStart(4, '0')}</td>
+                        <td>{new Date(v.fecha + 'T00:00:00').toLocaleDateString('es-PY')}</td>
+                        <td>{gs(v.total)} Gs.</td>
+                        <td>{FORMA_LABEL[v.forma_pago] || v.forma_pago}</td>
+                        <td>
+                          <span className={`badge badge-${v.estado === 'pagada' ? 'green' : v.estado === 'anulada' ? 'gray' : 'orange'}`}>
+                            {v.estado === 'pagada' ? 'Pagada' : v.estado === 'anulada' ? 'Anulada' : 'Pendiente'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )
       )}
     </Modal>
