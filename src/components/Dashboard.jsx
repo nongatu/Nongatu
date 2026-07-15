@@ -125,7 +125,7 @@ export default function Dashboard({ user, onNavigate }) {
         supabase.from('animales')
           .select('cantidad,categorias(nombre,cobrable,especies(nombre))')
           .eq('estado', 'activo'),
-        supabase.from('cobros').select('total,estado,periodo,pagos(monto,fecha_pago)'),
+        supabase.from('cobros').select('total,estado,periodo,pagos(monto)'),
         supabase.from('cobros')
           .select('id,periodo,estado,total,cliente_id,clientes(nombre_razon_social),pagos(monto)')
           .order('id', { ascending: false })
@@ -138,18 +138,18 @@ export default function Dashboard({ user, onNavigate }) {
       setRecientes(recientesRes.data || [])
 
       // ── Pastaje: cobrado del mes, pendiente total, ingresos por mes ──
+      // Se agrupa por `periodo` (mes de servicio que factura el cobro), no por la
+      // fecha real del pago: es el mismo criterio que usa el resto de la app
+      // (Cobros, Actividad reciente) y el que tiene datos históricos consistentes.
       let cobradoMesPastaje = 0
       let pendientePastaje  = 0
       const ingresosPagosPorMes = {}
       cobrosRes.data?.forEach(c => {
         const pag = c.pagos?.reduce((s, p) => s + Number(p.monto), 0) || 0
         pendientePastaje += Math.max(0, Number(c.total) - pag)
-        c.pagos?.forEach(p => {
-          if (!p.fecha_pago) return
-          const key = p.fecha_pago.slice(0, 7)
-          ingresosPagosPorMes[key] = (ingresosPagosPorMes[key] || 0) + Number(p.monto)
-          if (key === mesActualKey) cobradoMesPastaje += Number(p.monto)
-        })
+        if (!c.periodo) return
+        ingresosPagosPorMes[c.periodo] = (ingresosPagosPorMes[c.periodo] || 0) + pag
+        if (c.periodo === mesActualKey) cobradoMesPastaje += pag
       })
 
       // ── Ventas: contado del mes, cobros de fiado, pendiente fiado, por producto ──

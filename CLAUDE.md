@@ -17,7 +17,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Qué es este proyecto
 
-Ñongatu: sistema de gestión de pasturas/ganadería. Administra clientes que tienen animales a pastoreo, y genera cobros mensuales (con IVA) por ese servicio. Ver `schema.sql` para el modelo de datos completo (especies, categorias, clientes, animales, movimientos, cobros, cobro_detalles, pagos, recibos, usuarios).
+Ñongatu: sistema de gestión de pasturas/ganadería. Administra clientes que tienen animales a pastoreo, genera cobros mensuales (con IVA) por ese servicio, y además cubre ventas de productos propios y gastos. `schema.sql` (raíz del repo) es la fuente de verdad del modelo de datos real de Supabase — ante cualquier duda de columnas/tipos, releerlo ahí, no asumir.
+
+## Modelo de datos (Supabase)
+
+Todas las PK son `id integer` autoincremental (`nextval` de una secuencia). Fechas: `fecha`/`fecha_*` son `date`, `created_at`/`fecha_pago`/`fecha_registro`/`fecha_creacion` son `timestamp with time zone`. Módulo de pastaje/animales:
+
+- **especies**: `nombre`.
+- **categorias**: `especie_id`→especies, `nombre`, `cobrable` (bool, si el mes de esa categoría se cobra), `orden`.
+- **clientes**: `nombre_razon_social`, `cedula`, `ruc`, `direccion`, `telefono`, `email`, `fecha_alta`, `ultima_modificacion`, `modificado_por`, `creado_por`→usuarios, `tipo` (default `'pastaje'`, agregado por la migración de ventas/gastos).
+- **animales**: `cliente_id`→clientes, `categoria_id`→categorias, `cantidad`, `fecha_ingreso`, `precio`, `observaciones`, `estado` (`'activo'` por defecto; también hay bajas), `usuario_id`→usuarios, `fecha_inicio_cobro`, `cobrar_proporcional` (bool), `fecha_baja`.
+- **movimientos**: historial de cambios de un animal — `animal_id`→animales, `cliente_id`→clientes, `tipo`, `categoria_anterior_id`/`categoria_nueva_id`→categorias, `cantidad`, `causa`, `observacion`, `precio_nuevo`, `fecha`, `usuario_id`→usuarios.
+- **cobros**: `cliente_id`→clientes, `periodo` (varchar `'YYYY-MM'`, el **mes de servicio que factura el cobro** — es la clave para agrupar ingresos de pastaje por mes, no `pagos.fecha_pago`), `fecha_generacion`, `fecha_vencimiento`, `gravada`, `iva`, `total`, `estado` (`'pendiente' | 'parcial' | 'pagado'`).
+- **cobro_detalles**: `cobro_id`→cobros, `categoria_id`→categorias, `cantidad`, `precio_unitario`, `subtotal`.
+- **pagos**: `cobro_id`→cobros, `monto`, `tipo`, `fecha_pago` (fecha real en que se registró el pago — puede no coincidir con el `periodo` del cobro), `usuario_id`→usuarios, `medio_pago` (default `'efectivo'`), `credito_id`→creditos_cliente.
+- **recibos**: `pago_id`→pagos, `numero`, `fecha`, `cliente_id`→clientes, `total`, `detalle` (jsonb), `cobro_id`→cobros.
+- **creditos_cliente**: saldo a favor del cliente aplicable a cobros futuros — `cliente_id`→clientes, `monto`, `fecha_pago`, `periodo_aplicar`, `observacion`, `aplicado` (bool), `cobro_id`→cobros, `usuario_id`→usuarios, `medio_pago`.
+- **usuarios**: `nombre_usuario` (unique), `password_hash` (texto plano, sin hash real), `rol` (default `'Usuario'`; `'Administrador'` = acceso total), `activo`, `permisos` (jsonb de flags), `foto_url`, `perfil` (jsonb).
+- **tareas**: `texto`, `hecha` (bool), `visibilidad` (`'admin' | 'todos'`) — el checklist del Dashboard.
+
+Módulo de Ventas y Gastos (migración `docs/migracion-ventas-gastos.sql`, 100% aditiva):
+
+- **productos**: `nombre` (unique), `unidad` (`docena|kg|frasco|unidad|litro`), `precio`, `controla_stock` (bool), `stock_actual`, `stock_minimo`, `activo`, `orden`.
+- **stock_movimientos**: auditoría de stock — `producto_id`→productos (NOT NULL), `tipo` (`entrada_produccion|venta|anulacion_venta|ajuste`), `cantidad` (+/-), `fecha`, `venta_id` (referencia suelta, sin FK real), `observacion`, `usuario` (varchar, no FK a usuarios).
+- **categorias_gasto**: `nombre` (unique), `orden`, `activo`.
+- **cuentas_pago**: de dónde sale/entra la plata (base de "Caja y Bancos") — `nombre` (unique), `tipo` (default `'efectivo'`), `activo`.
+- **ventas**: `numero` (secuencia propia `ventas_numero_seq`), `fecha`, `cliente_id`→clientes (nullable, `null` = consumidor final), `cliente_nombre`, `forma_pago` (`efectivo|transferencia|fiado`), `cuenta_id`→cuentas_pago, `estado` (`'pagada'|'pendiente'|'anulada'`), `fecha_vencimiento` (solo fiado), `observaciones`, `total`, `usuario` (varchar).
+- **venta_items**: `venta_id`→ventas (NOT NULL), `producto_id`→productos (NOT NULL), `cantidad`, `precio_unitario`, `subtotal`.
+- **venta_cobros**: cobros parciales/totales de ventas fiadas — `venta_id`→ventas (NOT NULL), `fecha`, `monto`, `forma` (`efectivo|transferencia`), `cuenta_id`→cuentas_pago, `usuario` (varchar).
+- **gastos**: todo al contado (sin cuentas por pagar) — `fecha`, `categoria_id`→categorias_gasto, `proveedor`, `descripcion` (NOT NULL), `monto`, `cuenta_id`→cuentas_pago, `nro_comprobante`, `usuario` (varchar).
 
 ## Arquitectura
 
