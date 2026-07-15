@@ -54,9 +54,10 @@ const PERMS_SECTIONS = [
     label: '📊 Reportes',
     color: '#0891b2',
     perms: [
-      { key: 'ver_reportes',  label: 'Ver reportes' },
-      { key: 'exportar_pdf',  label: 'Exportar reportes en PDF' },
-      { key: 'exportar_csv',  label: 'Exportar reportes en CSV / Excel' },
+      { key: 'ver_reportes',    label: 'Ver reportes' },
+      { key: 'exportar_pdf',    label: 'Exportar reportes en PDF' },
+      { key: 'exportar_csv',    label: 'Exportar reportes en CSV' },
+      { key: 'exportar_excel',  label: 'Exportar reportes en Excel (.xlsx)' },
     ],
   },
   {

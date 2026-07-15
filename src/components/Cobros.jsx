@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { gs, periodoLabel } from '../utils/helpers'
+import { printHeader, printFooter, printDocument, abrirVentanaImpresion } from '../utils/printTemplate'
 
 const _u=['','Un','Dos','Tres','Cuatro','Cinco','Seis','Siete','Ocho','Nueve','Diez','Once','Doce','Trece','Catorce','Quince','Dieciséis','Diecisiete','Dieciocho','Diecinueve']
 const _d=['','','Veinte','Treinta','Cuarenta','Cincuenta','Sesenta','Setenta','Ochenta','Noventa']
@@ -56,7 +57,7 @@ function tablaCaja(totalCobro, fechaCobro, periodoStr, pagos) {
 // `detalle` puede venir en dos formas: un array de cobro_detalles (pastaje, como
 // siempre) o un objeto { origen:'venta', numero_venta, items } cuando el recibo
 // corresponde al cobro de una venta de productos fiada.
-function htmlRecibo(recibo, cliente, detalle, pagos=[]) {
+function htmlRecibo(recibo, cliente, detalle, pagos=[], usuario) {
   const esVenta = !!(detalle && !Array.isArray(detalle) && detalle.origen === 'venta')
   const periodoStr = esVenta ? '' : periodoLabel(recibo.periodo || '')
   const tituloSeccion = esVenta ? 'Detalle de productos' : 'Detalle de animales'
@@ -97,21 +98,15 @@ function htmlRecibo(recibo, cliente, detalle, pagos=[]) {
        </div>`
     : ''
 
+  const numero = String(recibo.numero||'').padStart(6,'0')
+
   const bloque = (copia, bgHeader) => `
   <div class="recibo" style="background:${bgHeader==='copia'?'#fafafa':'#fff'}">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-      <div>
-        <div style="font-size:16px;font-weight:700;margin-bottom:2px">QUERANDY S.A.</div>
-        <div style="font-size:10px;color:#555">RUC: 80094734-7</div>
-        <div style="font-size:10px;color:#555">Mcal. Estigarribia - Boquerón</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase">RECIBO N°</div>
-        <div style="font-size:22px;font-weight:700">${String(recibo.numero||'').padStart(6,'0')}</div>
-        <div style="font-size:14px;font-weight:700;border:2px solid #000;padding:3px 8px;margin-top:3px">${gs(totalPagado)} Gs.</div>
-      </div>
-    </div>
-    <div style="border-top:1px solid #999;margin:6px 0"></div>
+    ${printHeader({
+      titulo: `Recibo N° ${numero}`,
+      extraRightHtml: `<div class="pt-box">${gs(totalPagado)} Gs.</div>`,
+      usuario,
+    })}
     <table style="width:100%;margin-bottom:10px">
       <tr><td style="font-weight:700;width:130px;padding:2px 3px;font-size:11px">Fecha:</td><td style="padding:2px 3px;font-size:11px">${new Date(fechaRecibo).toLocaleDateString('es-PY')}</td></tr>
       <tr><td style="font-weight:700;padding:2px 3px;font-size:11px">Recibimos de:</td><td style="padding:2px 3px;font-size:11px;font-weight:700">${cliente}</td></tr>
@@ -137,29 +132,24 @@ function htmlRecibo(recibo, cliente, detalle, pagos=[]) {
     <div style="text-align:right;font-size:9px;font-weight:700;margin-top:5px;color:#555;letter-spacing:1px">${copia}</div>
   </div>`
 
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-  <title>Recibo ${esVenta ? ('Venta N° '+String(detalle.numero_venta||'').padStart(4,'0')) : periodoStr}</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;font-size:12px;background:#e5e5e5;padding:14px}
-    .recibo{width:100%;max-width:680px;margin:0 auto;border:1px solid #aaa;padding:14px;background:#fff}
-    .corte{width:100%;max-width:680px;margin:10px auto;border-top:2px dashed #aaa;display:flex;align-items:center;justify-content:center;padding:4px 0;font-size:10px;color:#aaa;letter-spacing:1px;gap:8px}
-    @media print{
-      @page{size:216mm 330mm portrait;margin:4mm}
-      body{background:#fff;padding:0;margin:0}
-      .recibo{border:1px solid #999;max-width:100%;margin:0;padding:10px;page-break-inside:avoid}
-      .corte{display:flex;border-top:1px dashed #bbb;padding:2px 0;margin:3px 0;font-size:8px;color:#bbb;letter-spacing:1px;justify-content:center;gap:6px}
-    }
-  </style></head><body>
-    ${bloque('ORIGINAL: CLIENTE', 'normal')}
-    <div class="corte">✂ ─ ─ ─ ─ ─ ─ ─ ─ ─ CORTE ─ ─ ─ ─ ─ ─ ─ ─ ─ ✂</div>
-    ${bloque('COPIA: CONTABILIDAD', 'copia')}
-    <script>window.onload=()=>{window.print()}<\/script>
-  </body></html>`
+  return printDocument({
+    titleTag: `Recibo ${esVenta ? ('Venta N° '+String(detalle.numero_venta||'').padStart(4,'0')) : periodoStr}`,
+    bodyHtml: `
+      ${bloque('ORIGINAL: CLIENTE', 'normal')}
+      <div class="corte">✂ ─ ─ ─ ─ ─ ─ ─ ─ ─ CORTE ─ ─ ─ ─ ─ ─ ─ ─ ─ ✂</div>
+      ${bloque('COPIA: CONTABILIDAD', 'copia')}
+      ${printFooter()}
+    `,
+    extraCss: `
+      .recibo{border:1px solid #aaa;padding:14px;margin-bottom:8px}
+      .corte{width:100%;margin:8px 0;border-top:2px dashed #aaa;display:flex;align-items:center;justify-content:center;padding:4px 0;font-size:10px;color:#aaa;letter-spacing:1px;gap:8px}
+      @media print{ .recibo{page-break-inside:avoid} }
+    `,
+  })
 }
 
 // ── HTML Detalle de cobro para imprimir ───────────────────────────────────────
-function htmlDetalle(cobro, clienteNombre, detalles, pagos = []) {
+function htmlDetalle(cobro, clienteNombre, detalles, pagos = [], usuario) {
   const periodoStr  = periodoLabel(cobro.periodo || '')
   const totalCobro  = (detalles || []).filter(d => d.cantidad > 0).reduce((s, d) => s + Number(d.subtotal || 0), 0)
   const totalPagado = pagos.reduce((s, p) => s + Number(p.monto), 0)
@@ -175,38 +165,8 @@ function htmlDetalle(cobro, clienteNombre, detalles, pagos = []) {
     </tr>`
   ).join('')
 
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Detalle ${periodoStr}</title><style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;font-size:12px;padding:20px;max-width:720px;margin:0 auto}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;border-bottom:2px solid #000;padding-bottom:10px}
-    .empresa .nombre{font-size:16px;font-weight:700;margin-bottom:2px}
-    .empresa div{font-size:11px;color:#333}
-    .doc-info{text-align:right}
-    .doc-titulo{font-size:14px;font-weight:700;text-transform:uppercase;margin-bottom:3px}
-    table{width:100%;border-collapse:collapse;margin-bottom:10px}
-    th,td{border:1px solid #ccc;padding:4px 6px;font-size:11px}
-    th{background:#f0f0f0;font-weight:700;text-align:left}
-    .datos td{border:none;padding:2px 4px;font-size:12px}
-    .datos .lbl{font-weight:700;width:150px;white-space:nowrap}
-    .total-row td{font-weight:700;background:#f5f5f5}
-    .seccion{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px;border-bottom:1px solid #ccc;padding-bottom:3px;color:#333}
-    @media print{body{padding:10px}}
-  </style></head><body>
-    <div class="header">
-      <div class="empresa">
-        <div class="nombre">QUERANDY S.A.</div>
-        <div>RUC: 80094734-7</div>
-        <div>Mcal. Estigarribia - Boquerón</div>
-      </div>
-      <div class="doc-info">
-        <div class="doc-titulo">Detalle de cobro</div>
-        <div style="font-size:11px">Emisión: ${new Date().toLocaleDateString('es-PY')}</div>
-      </div>
-    </div>
-    <table class="datos" style="margin-bottom:14px">
-      <tr><td class="lbl">Cliente:</td><td><strong>${clienteNombre}</strong></td></tr>
-      <tr><td class="lbl">Período:</td><td><strong>${periodoStr}</strong></td></tr>
-    </table>
+  const bodyHtml = `
+    ${printHeader({ titulo: 'Detalle de cobro', subtitulo: `Cliente: ${clienteNombre}`, filtrosTxt: `Período: ${periodoStr}`, usuario })}
 
     <div class="seccion">Animales en pastura</div>
     <table>
@@ -218,7 +178,7 @@ function htmlDetalle(cobro, clienteNombre, detalles, pagos = []) {
       </tr></thead>
       <tbody>
         ${filasDetalle}
-        <tr class="total-row">
+        <tr class="pt-total-row">
           <td colspan="3" style="text-align:right">TOTAL DEL PERÍODO:</td>
           <td style="text-align:right">${gs(totalCobro)} Gs.</td>
         </tr>
@@ -233,8 +193,14 @@ function htmlDetalle(cobro, clienteNombre, detalles, pagos = []) {
         </div>`
       : `<div style="color:#999;font-style:italic;font-size:11px;padding:6px 0">Sin pagos registrados aún.</div>`
     }
-    <script>window.onload=()=>window.print()<\/script>
-  </body></html>`
+    ${printFooter()}
+  `
+
+  return printDocument({
+    titleTag: `Detalle ${periodoStr}`,
+    bodyHtml,
+    extraCss: `.seccion{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px;border-bottom:1px solid #ccc;padding-bottom:3px;color:#333}`,
+  })
 }
 
 function calcularCobro(animalesCli, periodo, bajasCli) {
@@ -581,9 +547,7 @@ export default function Cobros({ user }) {
       supabase.from('cobro_detalles').select('*,categorias(nombre)').eq('cobro_id',cobro.id),
       supabase.from('pagos').select('monto,tipo,fecha_pago,medio_pago').eq('cobro_id',cobro.id).order('fecha_pago')
     ])
-    const w = window.open('','_blank')
-    w.document.write(htmlDetalle(cobro, cobro.clientes?.nombre_razon_social||'', det||[], pags||[]))
-    w.document.close()
+    abrirVentanaImpresion(htmlDetalle(cobro, cobro.clientes?.nombre_razon_social||'', det||[], pags||[], user?.nombre_usuario))
   }
 
   // ── FIFO: solo crea pagos, NO crea recibos ────────────────────────────────
@@ -965,9 +929,7 @@ export default function Cobros({ user }) {
     const pagosData = r.cobro_id
       ? (await supabase.from('pagos').select('monto,tipo,fecha_pago,medio_pago').eq('cobro_id', r.cobro_id).order('fecha_pago')).data
       : []
-    const w = window.open('','_blank')
-    w.document.write(htmlRecibo({...r,periodo:r.cobros?.periodo||''},r.clientes?.nombre_razon_social||r.detalle?.cliente_nombre||'',r.detalle||[],pagosData||[]))
-    w.document.close()
+    abrirVentanaImpresion(htmlRecibo({...r,periodo:r.cobros?.periodo||''},r.clientes?.nombre_razon_social||r.detalle?.cliente_nombre||'',r.detalle||[],pagosData||[],user?.nombre_usuario))
   }
 
   const cobrosFiltrados = cobros.filter(c=>!filtroCliente||c.cliente_id===parseInt(filtroCliente))

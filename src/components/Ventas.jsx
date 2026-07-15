@@ -5,6 +5,7 @@ import SearchSelect from './SearchSelect.jsx'
 import Modal from './ui/Modal.jsx'
 import ConfirmDialog from './ui/ConfirmDialog.jsx'
 import Toast from './ui/Toast.jsx'
+import { printHeader, printFooter, printDocument, abrirVentanaImpresion } from '../utils/printTemplate'
 
 const FORMA_LABEL  = { efectivo: 'Efectivo', transferencia: 'Transferencia', fiado: 'Fiado' }
 const FORMA_BADGE  = { efectivo: 'green', transferencia: 'blue', fiado: 'orange' }
@@ -19,8 +20,8 @@ const FORM_EMPTY  = () => ({
 const CLIENTE_EMPTY = { nombre_razon_social: '', ruc: '', cedula: '', telefono: '', email: '', tipo: 'ventas' }
 const PRODUCCION_EMPTY = { producto_id: '', cantidad: '', fecha: fechaHoy(), observacion: '' }
 
-// ── Ticket de venta (misma mecánica que los recibos: ventana + print) ────────
-function htmlTicket(venta) {
+// ── Ticket de venta (plantilla imprimible común: ventana + print) ────────────
+function htmlTicket(venta, usuario) {
   const items = venta.venta_items || []
   const filas = items.map(it => `
     <tr>
@@ -30,44 +31,30 @@ function htmlTicket(venta) {
       <td style="text-align:right">${gs(it.subtotal)} Gs.</td>
     </tr>`).join('')
   const numero = String(venta.numero || '').padStart(4, '0')
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Venta N° ${numero}</title><style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;font-size:12px;padding:20px;max-width:480px;margin:0 auto}
-    .header{display:flex;align-items:center;gap:10px;margin-bottom:10px;border-bottom:2px solid #000;padding-bottom:10px}
-    .header img{height:40px}
-    .empresa .nombre{font-size:15px;font-weight:700}
-    .empresa div{font-size:10px;color:#333}
-    table{width:100%;border-collapse:collapse;margin:10px 0}
-    th,td{border:1px solid #ccc;padding:4px 6px;font-size:11px}
-    th{background:#f0f0f0;text-align:left}
-    .total-row td{font-weight:700;background:#f5f5f5}
-    @media print{body{padding:10px}}
-  </style></head><body>
-    <div class="header">
-      <img src="${window.location.origin}/nongatu-logo.png" onerror="this.style.display='none'">
-      <div class="empresa">
-        <div class="nombre">Ñongatu</div>
-        <div>Venta N° ${numero} · ${new Date(venta.fecha + 'T00:00:00').toLocaleDateString('es-PY')}</div>
-      </div>
-    </div>
-    <div style="margin-bottom:8px;font-size:12px">
-      <div><b>Cliente:</b> ${venta.cliente_nombre}</div>
-      <div><b>Forma de pago:</b> ${FORMA_LABEL[venta.forma_pago] || venta.forma_pago} · <b>Estado:</b> ${ESTADO_LABEL[venta.estado] || venta.estado}</div>
-    </div>
+
+  const bodyHtml = `
+    ${printHeader({
+      titulo: `Venta N° ${numero}`,
+      subtitulo: `Cliente: ${venta.cliente_nombre}`,
+      filtrosTxt: `Fecha: ${new Date(venta.fecha + 'T00:00:00').toLocaleDateString('es-PY')} · Forma de pago: ${FORMA_LABEL[venta.forma_pago] || venta.forma_pago} · Estado: ${ESTADO_LABEL[venta.estado] || venta.estado}`,
+      usuario,
+    })}
     <table>
       <thead><tr><th>Producto</th><th style="text-align:center">Cant.</th><th style="text-align:right">P. unit.</th><th style="text-align:right">Subtotal</th></tr></thead>
       <tbody>
         ${filas}
-        <tr class="total-row"><td colspan="3" style="text-align:right">TOTAL:</td><td style="text-align:right">${gs(venta.total)} Gs.</td></tr>
+        <tr class="pt-total-row"><td colspan="3" style="text-align:right">TOTAL:</td><td style="text-align:right">${gs(venta.total)} Gs.</td></tr>
       </tbody>
     </table>
     ${venta.observaciones ? `<div style="font-size:11px;color:#555;margin-top:6px"><b>Obs.:</b> ${venta.observaciones}</div>` : ''}
-    <script>window.onload=()=>window.print()<\/script>
-  </body></html>`
+    ${printFooter()}
+  `
+
+  return printDocument({ titleTag: `Venta N° ${numero}`, bodyHtml })
 }
 
 // ── Modal: Detalle de venta ───────────────────────────────────────────────────
-function VentaDetalleModal({ venta, puedeAnular, onClose, onAnular }) {
+function VentaDetalleModal({ venta, puedeAnular, onClose, onAnular, usuario }) {
   const cobrado = venta.venta_cobros?.reduce((s, vc) => s + Number(vc.monto), 0) || 0
   const saldo = Number(venta.total) - cobrado
   return (
@@ -77,7 +64,7 @@ function VentaDetalleModal({ venta, puedeAnular, onClose, onAnular }) {
       footer={
         <>
           <button className="btn btn-outline" onClick={onClose}>Cerrar</button>
-          <button className="btn btn-blue" onClick={() => { const w = window.open('', '_blank'); w.document.write(htmlTicket(venta)); w.document.close() }}>
+          <button className="btn btn-blue" onClick={() => abrirVentanaImpresion(htmlTicket(venta, usuario))}>
             Imprimir ticket
           </button>
           {puedeAnular && venta.estado !== 'anulada' && (
@@ -651,6 +638,7 @@ export default function Ventas({ user }) {
         <VentaDetalleModal
           venta={verVenta}
           puedeAnular={puedeAnular}
+          usuario={user?.nombre_usuario}
           onClose={() => setVerVenta(null)}
           onAnular={(v) => setConfirmAnular(v)}
         />
