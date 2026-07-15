@@ -43,24 +43,39 @@ function ProductoBars({ productos }) {
   )
 }
 
+// ── Barra vertical proporcional: crece con flex, ocupa toda la altura disponible ──
+function VBar({ frac, color, title, children }) {
+  return (
+    <div style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }} title={title}>
+      <div style={{ flexGrow: Math.max(0, 1 - frac), flexShrink: 0 }} />
+      <div style={{
+        flexGrow: Math.max(frac, 0.02), flexShrink: 0, minHeight: 3,
+        background: color, borderRadius: '4px 4px 0 0', opacity: 0.9,
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 2,
+      }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // ── Barras: ingresos vs gastos (últimos 6 meses) ──────────────────────────────
 function IngresosGastosChart({ meses }) {
   if (!meses.length) {
     return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>Sin datos suficientes aún</div>
   }
-  const H = 76
   const maxVal = Math.max(...meses.flatMap(m => [m.ingresos, m.gastos]), 1)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: H, flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: 10, flex: 1, minHeight: 0 }}>
         {meses.map(m => (
-          <div key={m.periodo} style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 3, height: '100%' }}>
-            <div style={{ flex: 1, height: Math.round((m.ingresos / maxVal) * H), minHeight: 2, background: '#10b981', borderRadius: '3px 3px 0 0' }} title={`Ingresos: ${gs(m.ingresos)} Gs.`} />
-            <div style={{ flex: 1, height: Math.round((m.gastos / maxVal) * H), minHeight: 2, background: '#f87171', borderRadius: '3px 3px 0 0' }} title={`Gastos: ${gs(m.gastos)} Gs.`} />
+          <div key={m.periodo} style={{ flex: 1, minWidth: 0, display: 'flex', gap: 3, height: '100%' }}>
+            <VBar frac={m.ingresos / maxVal} color="#10b981" title={`Ingresos: ${gs(m.ingresos)} Gs.`} />
+            <VBar frac={m.gastos / maxVal} color="#f87171" title={`Gastos: ${gs(m.gastos)} Gs.`} />
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+      <div style={{ display: 'flex', gap: 10, marginTop: 4, flexShrink: 0 }}>
         {meses.map(m => (
           <span key={m.periodo} style={{ flex: 1, textAlign: 'center', fontSize: 10, color: 'var(--text-secondary)' }}>
             {new Date(m.periodo + '-15').toLocaleDateString('es-PY', { month: 'short' })}
@@ -373,14 +388,14 @@ export default function Dashboard({ user, onNavigate }) {
                 <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Sin datos. Registrá categorías y animales.</p>
               ) : (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 58, flexShrink: 0, paddingBottom: 4, borderBottom: '2px solid var(--border)' }}>
+                  <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, paddingBottom: 4, borderBottom: '2px solid var(--border)' }}>
                     {porEspecie.map((esp, i) => (
-                      <div key={esp.especie} title={`${esp.especie}: ${esp.total}`} style={{ flex: 1, height: `${Math.round((esp.total / maxAnimales) * 44) + 8}px`, background: ESPECIE_COLORS[i % ESPECIE_COLORS.length], borderRadius: '4px 4px 0 0', opacity: 0.9, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 2 }}>
+                      <VBar key={esp.especie} frac={esp.total / maxAnimales} color={ESPECIE_COLORS[i % ESPECIE_COLORS.length]} title={`${esp.especie}: ${esp.total}`}>
                         <span style={{ fontSize: 11 }}>{ESPECIE_ICONS[i % ESPECIE_ICONS.length]}</span>
-                      </div>
+                      </VBar>
                     ))}
                   </div>
-                  <div className="dash-scroll" style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', gap: 5, marginTop: 8 }}>
+                  <div className="dash-scroll" style={{ flexShrink: 0, maxHeight: '38%', display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', gap: 5, marginTop: 8 }}>
                     {porEspecie.flatMap((esp, i) =>
                       esp.categorias.map(cat => (
                         <span key={esp.especie + cat.nombre} style={{ background: 'var(--main-bg,#f9fafb)', border: `1px solid ${ESPECIE_COLORS[i % ESPECIE_COLORS.length]}55`, borderRadius: 999, padding: '2px 9px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
