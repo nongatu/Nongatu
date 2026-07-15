@@ -7,6 +7,7 @@ const NAV = [
   { key: 'animales',  label: 'Animales', icon: '🐄' },
   { key: 'ventas',    label: 'Ventas',   icon: '🛒' },
   { key: 'cobros',    label: 'Cobros',   icon: '💳' },
+  { key: 'gastos',    label: 'Gastos',   icon: '📤' },
   { key: 'reportes',  label: 'Reportes', icon: '📊' },
 ]
 
@@ -60,6 +61,7 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
       animales:   'ver_animales',
       ventas:     'ver_ventas',
       cobros:     'ver_cobros',
+      gastos:     'ver_gastos',
       reportes:   'ver_reportes',
       categorias: 'ver_categorias',
     }

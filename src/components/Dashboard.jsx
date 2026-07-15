@@ -132,17 +132,21 @@ export default function Dashboard({ user, onNavigate }) {
           .limit(4),
         supabase.from('ventas')
           .select('id,numero,fecha,total,estado,cliente_nombre,venta_items(subtotal,productos(nombre)),venta_cobros(monto,fecha),created_at'),
-        supabase.from('gastos').select('fecha,monto'),
+        supabase.from('gastos').select('id,fecha,monto,proveedor,descripcion,categorias_gasto(nombre),created_at'),
       ])
 
-      // ── Actividad reciente: cobros de pastaje + ventas, intercalados por fecha ──
+      // ── Actividad reciente: cobros de pastaje + ventas + gastos, por fecha ──
       const cobroBadge = e => e === 'pagado' ? { bg: '#d1fae5', color: '#065f46', label: 'Pagado' }
         : e === 'parcial' ? { bg: '#fef3c7', color: '#92400e', label: 'Parcial' }
         : { bg: '#fee2e2', color: '#991b1b', label: 'Pendiente' }
       const ventaBadge = e => e === 'pagada' ? { bg: '#d1fae5', color: '#065f46', label: 'Pagada' }
         : e === 'anulada' ? { bg: '#f3f4f6', color: '#6b7280', label: 'Anulada' }
         : { bg: '#fed7aa', color: '#9a3412', label: 'Pendiente' }
+      const gastoBadgeInfo = { bg: '#fee2e2', color: '#991b1b', label: 'Gasto' }
       const ventasRecientes = [...(ventasRes.data || [])]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 4)
+      const gastosRecientes = [...(gastosRes.data || [])]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, 4)
       const actividad = [
@@ -162,6 +166,13 @@ export default function Dashboard({ user, onNavigate }) {
           subtitulo: `Venta N° ${String(v.numero).padStart(4, '0')}`,
           monto: Number(v.total), pagado: null,
           badge: ventaBadge(v.estado),
+        })),
+        ...gastosRecientes.map(g => ({
+          id: 'g' + g.id, fecha: g.created_at,
+          titulo: g.proveedor || g.descripcion,
+          subtitulo: `Gasto · ${g.categorias_gasto?.nombre || 'Sin categoría'}`,
+          monto: Number(g.monto), pagado: null,
+          badge: gastoBadgeInfo,
         })),
       ].sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 6)
       setActividadReciente(actividad)

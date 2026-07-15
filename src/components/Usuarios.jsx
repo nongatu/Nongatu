@@ -41,6 +41,15 @@ const PERMS_SECTIONS = [
     ],
   },
   {
+    key: 'gastos',
+    label: '📤 Gastos',
+    color: '#dc2626',
+    perms: [
+      { key: 'ver_gastos',   label: 'Ver gastos' },
+      { key: 'crear_gastos', label: 'Registrar, editar y eliminar gastos' },
+    ],
+  },
+  {
     key: 'reportes',
     label: '📊 Reportes',
     color: '#0891b2',

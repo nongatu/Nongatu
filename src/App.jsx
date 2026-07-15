@@ -6,6 +6,7 @@ import Clientes from './components/Clientes.jsx'
 import Animales from './components/Animales.jsx'
 import Ventas from './components/Ventas.jsx'
 import Cobros from './components/Cobros.jsx'
+import Gastos from './components/Gastos.jsx'
 import Reportes from './components/Reportes.jsx'
 import Usuarios from './components/Usuarios.jsx'
 import Categorias from './components/Categorias.jsx'
@@ -41,7 +42,7 @@ export default function App() {
 
   const pages = {
     dashboard: Dashboard, clientes: Clientes, animales: Animales, ventas: Ventas,
-    cobros: Cobros, reportes: Reportes, usuarios: Usuarios, categorias: Categorias,
+    cobros: Cobros, gastos: Gastos, reportes: Reportes, usuarios: Usuarios, categorias: Categorias,
     perfil: Perfil, configuracion: Configuracion,
   }
   const PageComponent = pages[page] || Dashboard
