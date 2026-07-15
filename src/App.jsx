@@ -4,6 +4,7 @@ import Layout from './components/Layout.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import Clientes from './components/Clientes.jsx'
 import Animales from './components/Animales.jsx'
+import Ventas from './components/Ventas.jsx'
 import Cobros from './components/Cobros.jsx'
 import Reportes from './components/Reportes.jsx'
 import Usuarios from './components/Usuarios.jsx'
@@ -39,7 +40,7 @@ export default function App() {
   if (!user) return <Login onLogin={handleLogin} />
 
   const pages = {
-    dashboard: Dashboard, clientes: Clientes, animales: Animales,
+    dashboard: Dashboard, clientes: Clientes, animales: Animales, ventas: Ventas,
     cobros: Cobros, reportes: Reportes, usuarios: Usuarios, categorias: Categorias,
     perfil: Perfil, configuracion: Configuracion,
   }

@@ -96,7 +96,7 @@ export default function Dashboard({ user, onNavigate }) {
   const [productosMes, setProductosMes] = useState([])
   const [ventasMesInfo, setVentasMesInfo] = useState({ cantidad: 0, total: 0 })
   const [porEspecie, setPorEspecie]   = useState([])
-  const [recientes, setRecientes]     = useState([])
+  const [actividadReciente, setActividadReciente] = useState([])
   const [loading, setLoading]         = useState(true)
 
   // Checklist
@@ -127,15 +127,44 @@ export default function Dashboard({ user, onNavigate }) {
           .eq('estado', 'activo'),
         supabase.from('cobros').select('total,estado,periodo,pagos(monto)'),
         supabase.from('cobros')
-          .select('id,periodo,estado,total,cliente_id,clientes(nombre_razon_social),pagos(monto)')
+          .select('id,periodo,estado,total,cliente_id,clientes(nombre_razon_social),pagos(monto),created_at')
           .order('id', { ascending: false })
           .limit(4),
         supabase.from('ventas')
-          .select('id,fecha,total,estado,venta_items(subtotal,productos(nombre)),venta_cobros(monto,fecha)'),
+          .select('id,numero,fecha,total,estado,cliente_nombre,venta_items(subtotal,productos(nombre)),venta_cobros(monto,fecha),created_at'),
         supabase.from('gastos').select('fecha,monto'),
       ])
 
-      setRecientes(recientesRes.data || [])
+      // ── Actividad reciente: cobros de pastaje + ventas, intercalados por fecha ──
+      const cobroBadge = e => e === 'pagado' ? { bg: '#d1fae5', color: '#065f46', label: 'Pagado' }
+        : e === 'parcial' ? { bg: '#fef3c7', color: '#92400e', label: 'Parcial' }
+        : { bg: '#fee2e2', color: '#991b1b', label: 'Pendiente' }
+      const ventaBadge = e => e === 'pagada' ? { bg: '#d1fae5', color: '#065f46', label: 'Pagada' }
+        : e === 'anulada' ? { bg: '#f3f4f6', color: '#6b7280', label: 'Anulada' }
+        : { bg: '#fed7aa', color: '#9a3412', label: 'Pendiente' }
+      const ventasRecientes = [...(ventasRes.data || [])]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 4)
+      const actividad = [
+        ...(recientesRes.data || []).map(c => {
+          const pag = c.pagos?.reduce((s, p) => s + Number(p.monto), 0) || 0
+          return {
+            id: 'c' + c.id, fecha: c.created_at,
+            titulo: c.clientes?.nombre_razon_social || '',
+            subtitulo: `Cobro pastaje · ${periodoLabel(c.periodo)}`,
+            monto: Number(c.total), pagado: pag,
+            badge: cobroBadge(c.estado),
+          }
+        }),
+        ...ventasRecientes.map(v => ({
+          id: 'v' + v.id, fecha: v.created_at,
+          titulo: v.cliente_nombre || 'Consumidor final',
+          subtitulo: `Venta N° ${String(v.numero).padStart(4, '0')}`,
+          monto: Number(v.total), pagado: null,
+          badge: ventaBadge(v.estado),
+        })),
+      ].sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 6)
+      setActividadReciente(actividad)
 
       // ── Pastaje: cobrado del mes, pendiente total, ingresos por mes ──
       // Se agrupa por `periodo` (mes de servicio que factura el cobro), no por la
@@ -288,12 +317,6 @@ export default function Dashboard({ user, onNavigate }) {
   const mesLabelCap = mesLabelStr.charAt(0).toUpperCase() + mesLabelStr.slice(1)
   const maxAnimales = Math.max(...porEspecie.map(e => e.total), 1)
   const totalAnimales = porEspecie.reduce((s, e) => s + e.total, 0)
-
-  const estadoBadge = e => {
-    if (e === 'pagado')  return { bg: '#d1fae5', color: '#065f46', label: 'Pagado' }
-    if (e === 'parcial') return { bg: '#fef3c7', color: '#92400e', label: 'Parcial' }
-    return { bg: '#fee2e2', color: '#991b1b', label: 'Pendiente' }
-  }
 
   const resultadoMes = fin.ingresosMes - fin.gastosMes
   const porCobrarTotal = fin.pendientePastaje + fin.pendienteFiados
@@ -467,26 +490,22 @@ export default function Dashboard({ user, onNavigate }) {
           {/* Actividad reciente */}
           <div className="dash-card" style={{ maxHeight: 300, display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 1, flexShrink: 0 }}>Actividad reciente</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8, flexShrink: 0 }}>Cobros de pastaje</div>
-            {recientes.length === 0 ? (
-              <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Sin cobros registrados.</p>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8, flexShrink: 0 }}>Cobros y ventas</div>
+            {actividadReciente.length === 0 ? (
+              <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Sin actividad registrada.</p>
             ) : (
               <div className="dash-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {recientes.map(c => {
-                  const pag   = c.pagos?.reduce((s, p) => s + Number(p.monto), 0) || 0
-                  const badge = estadoBadge(c.estado)
-                  return (
-                    <div key={c.id} style={{ background: 'var(--main-bg,#f9fafb)', borderRadius: 9, padding: '9px 11px', border: '1px solid var(--border)', flexShrink: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '58%' }}>{c.clientes?.nombre_razon_social}</div>
-                        <span style={{ background: badge.bg, color: badge.color, borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{badge.label}</span>
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>{periodoLabel(c.periodo)}</div>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{gs(Number(c.total))} Gs.</div>
-                      {pag > 0 && <div style={{ fontSize: 11, color: '#10b981' }}>Pagado: {gs(pag)} Gs.</div>}
+                {actividadReciente.map(a => (
+                  <div key={a.id} style={{ background: 'var(--main-bg,#f9fafb)', borderRadius: 9, padding: '9px 11px', border: '1px solid var(--border)', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '58%' }}>{a.titulo}</div>
+                      <span style={{ background: a.badge.bg, color: a.badge.color, borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{a.badge.label}</span>
                     </div>
-                  )
-                })}
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>{a.subtitulo}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{gs(a.monto)} Gs.</div>
+                    {a.pagado > 0 && <div style={{ fontSize: 11, color: '#10b981' }}>Pagado: {gs(a.pagado)} Gs.</div>}
+                  </div>
+                ))}
               </div>
             )}
           </div>

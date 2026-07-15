@@ -22,6 +22,15 @@ const PERMS_SECTIONS = [
     ],
   },
   {
+    key: 'ventas',
+    label: '🛒 Ventas',
+    color: '#ea580c',
+    perms: [
+      { key: 'ver_ventas',   label: 'Ver ventas' },
+      { key: 'crear_ventas', label: 'Registrar ventas, producción y crear clientes desde Ventas' },
+    ],
+  },
+  {
     key: 'cobros',
     label: '💰 Cobros',
     color: '#7c3aed',
@@ -55,7 +64,7 @@ const PERMS_SECTIONS = [
     label: '⚙️ Acciones generales',
     color: '#dc2626',
     perms: [
-      { key: 'eliminar_anular', label: 'Eliminar y anular registros (clientes, animales, cobros)' },
+      { key: 'eliminar_anular', label: 'Eliminar y anular registros (clientes, animales, cobros, ventas)' },
       { key: 'ver_tareas',      label: 'Ver y gestionar tareas pendientes en el dashboard' },
     ],
   },

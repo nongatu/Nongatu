@@ -5,6 +5,7 @@ const NAV = [
   { key: 'dashboard', label: 'Inicio',   icon: '🏠' },
   { key: 'clientes',  label: 'Clientes', icon: '👥' },
   { key: 'animales',  label: 'Animales', icon: '🐄' },
+  { key: 'ventas',    label: 'Ventas',   icon: '🛒' },
   { key: 'cobros',    label: 'Cobros',   icon: '💳' },
   { key: 'reportes',  label: 'Reportes', icon: '📊' },
 ]
@@ -57,6 +58,7 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
     const map = {
       clientes:   'ver_clientes',
       animales:   'ver_animales',
+      ventas:     'ver_ventas',
       cobros:     'ver_cobros',
       reportes:   'ver_reportes',
       categorias: 'ver_categorias',
