@@ -1303,15 +1303,20 @@ export default function Cobros({ user }) {
       )})()}
 
       {/* ── VENTAS FIADAS ── */}
-      {tab==='ventasfiadas'&&(
+      {tab==='ventasfiadas'&&(() => {
+        const saldoTotal = ventasFiadas.reduce((s,v) => {
+          const cobrado = v.venta_cobros?.reduce((ss,vc)=>ss+Number(vc.monto),0)||0
+          return s + Math.max(0, Number(v.total)-cobrado)
+        }, 0)
+        return (
         <div className="table-container"><div className="table-wrapper">
           <table>
             <thead><tr>
-              <th>N°</th><th>Cliente</th><th>Detalle</th><th>Fecha</th><th>Vencimiento</th><th>Total</th><th>Cobrado</th><th>Saldo</th><th>Acciones</th>
+              <th>N°</th><th>Cliente</th><th>Detalle</th><th>Vence</th><th>Total</th><th>Cobrado</th><th>Saldo</th><th></th>
             </tr></thead>
             <tbody>
               {ventasFiadas.length===0
-                ? <tr><td colSpan={9} className="table-empty">Sin ventas fiadas pendientes.</td></tr>
+                ? <tr><td colSpan={8} className="table-empty">Sin ventas fiadas pendientes.</td></tr>
                 : ventasFiadas.map(v=>{
                   const cobrado = v.venta_cobros?.reduce((s,vc)=>s+Number(vc.monto),0)||0
                   const saldo = Number(v.total)-cobrado
@@ -1322,7 +1327,6 @@ export default function Cobros({ user }) {
                       <td>{String(v.numero).padStart(4,'0')}</td>
                       <td style={{fontWeight:600}}>{v.cliente_nombre}</td>
                       <td style={{maxWidth:220,whiteSpace:'normal'}}>{detalle}</td>
-                      <td>{new Date(v.fecha+'T00:00:00').toLocaleDateString('es-PY')}</td>
                       <td style={{color:vencida?'var(--red)':undefined,fontWeight:vencida?700:400}}>
                         {v.fecha_vencimiento ? new Date(v.fecha_vencimiento+'T00:00:00').toLocaleDateString('es-PY') : '-'}
                         {vencida && <span className="badge badge-red" style={{marginLeft:4}}>Vencida</span>}
@@ -1337,8 +1341,16 @@ export default function Cobros({ user }) {
               }
             </tbody>
           </table>
-        </div></div>
-      )}
+          </div>
+          <div className="summary-bar">
+            <span>{ventasFiadas.length} fiado{ventasFiadas.length===1?'':'s'} pendiente{ventasFiadas.length===1?'':'s'}</span>
+            <div className="totals">
+              <span>Saldo total: <strong>{gs(saldoTotal)} Gs.</strong></span>
+            </div>
+          </div>
+        </div>
+        )
+      })()}
 
       {/* ── MODAL PAGO ── */}
       {modal==='pago'&&(

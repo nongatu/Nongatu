@@ -54,9 +54,10 @@ function htmlTicket(venta, usuario) {
 }
 
 // ── Modal: Detalle de venta ───────────────────────────────────────────────────
-function VentaDetalleModal({ venta, puedeAnular, onClose, onAnular, usuario }) {
+function VentaDetalleModal({ venta, puedeAnular, puedeEditar, onClose, onAnular, onEditar, onEliminar, usuario }) {
   const cobrado = venta.venta_cobros?.reduce((s, vc) => s + Number(vc.monto), 0) || 0
   const saldo = Number(venta.total) - cobrado
+  const bloqueadaPorCobros = (venta.venta_cobros?.length || 0) > 0
   return (
     <Modal
       title={`Detalle de venta N° ${String(venta.numero).padStart(4, '0')}`}
@@ -67,8 +68,14 @@ function VentaDetalleModal({ venta, puedeAnular, onClose, onAnular, usuario }) {
           <button className="btn btn-blue" onClick={() => abrirVentanaImpresion(htmlTicket(venta, usuario))}>
             Imprimir ticket
           </button>
+          {puedeEditar && venta.estado !== 'anulada' && !bloqueadaPorCobros && (
+            <button className="btn btn-outline" onClick={() => onEditar(venta)}>Editar</button>
+          )}
           {puedeAnular && venta.estado !== 'anulada' && (
-            <button className="btn btn-red" onClick={() => onAnular(venta)}>Anular</button>
+            <button className="btn btn-orange" onClick={() => onAnular(venta)}>Anular</button>
+          )}
+          {puedeAnular && !bloqueadaPorCobros && (
+            <button className="btn btn-red" onClick={() => onEliminar(venta)}>Eliminar</button>
           )}
         </>
       }
@@ -79,6 +86,12 @@ function VentaDetalleModal({ venta, puedeAnular, onClose, onAnular, usuario }) {
         <span className={`badge badge-${FORMA_BADGE[venta.forma_pago]}`}>{FORMA_LABEL[venta.forma_pago]}</span>
         <span className={`badge badge-${ESTADO_BADGE[venta.estado]}`}>{ESTADO_LABEL[venta.estado]}</span>
       </div>
+
+      {bloqueadaPorCobros && (
+        <div className="alert alert-info">
+          Esta venta ya tiene cobros registrados: no se puede editar ni eliminar (para no descuadrar los cobros y el recibo ya generados). Si hace falta corregirla, usá "Anular" o pedile al administrador que la ajuste directamente en Supabase.
+        </div>
+      )}
 
       <div className="table-wrapper">
         <table>
@@ -138,13 +151,19 @@ export default function Ventas({ user }) {
   const [toast, setToast]         = useState(null)
 
   const [form, setForm] = useState(FORM_EMPTY())
+  const [editId, setEditId] = useState(null)
 
   const [modalCliente, setModalCliente]       = useState(false)
   const [clienteForm, setClienteForm]         = useState(CLIENTE_EMPTY)
   const [modalProduccion, setModalProduccion] = useState(false)
   const [produccionForm, setProduccionForm]   = useState(PRODUCCION_EMPTY)
+  const [editProdId, setEditProdId]           = useState(null)
+  const [modalHistorialProd, setModalHistorialProd] = useState(false)
+  const [historialProduccion, setHistorialProduccion] = useState([])
+  const [confirmEliminarProd, setConfirmEliminarProd] = useState(null)
   const [verVenta, setVerVenta]               = useState(null)
   const [confirmAnular, setConfirmAnular]     = useState(null)
+  const [confirmEliminarVenta, setConfirmEliminarVenta] = useState(null)
 
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroProducto, setFiltroProducto] = useState('')
@@ -194,7 +213,7 @@ export default function Ventas({ user }) {
 
   const totalForm = form.items.reduce((s, it) => s + (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0), 0)
 
-  // ── Guardar venta ───────────────────────────────────────────────────────
+  // ── Guardar venta (alta o edición) ───────────────────────────────────────
   const guardarVenta = async () => {
     const itemsValidos = form.items.filter(it => it.producto_id && Number(it.cantidad) > 0)
     if (!itemsValidos.length) return setMsg({ type: 'error', text: 'Agregá al menos un producto.' })
@@ -206,45 +225,126 @@ export default function Ventas({ user }) {
     const clienteObj = !esConsumidorFinal ? clientes.find(c => String(c.id) === form.cliente_id) : null
     const total = itemsValidos.reduce((s, it) => s + Number(it.cantidad) * Number(it.precio_unitario), 0)
 
-    const payload = {
+    const payloadBase = {
       fecha: form.fecha,
       cliente_id: esConsumidorFinal ? null : parseInt(form.cliente_id),
       cliente_nombre: esConsumidorFinal ? 'Consumidor final' : (clienteObj?.nombre_razon_social || 'Consumidor final'),
       forma_pago: form.forma_pago,
       cuenta_id: form.forma_pago === 'transferencia' ? parseInt(form.cuenta_id) : null,
-      estado: form.forma_pago === 'fiado' ? 'pendiente' : 'pagada',
       fecha_vencimiento: form.forma_pago === 'fiado' ? form.fecha_vencimiento : null,
       observaciones: form.observaciones || null,
       total,
-      usuario: user?.nombre_usuario,
     }
-    const { data: venta, error } = await supabase.from('ventas').insert(payload).select().single()
-    if (error || !venta) { setSaving(false); return setMsg({ type: 'error', text: 'Error al guardar la venta.' }) }
-
-    await supabase.from('venta_items').insert(itemsValidos.map(it => ({
-      venta_id: venta.id, producto_id: parseInt(it.producto_id),
-      cantidad: Number(it.cantidad), precio_unitario: Number(it.precio_unitario),
-      subtotal: Number(it.cantidad) * Number(it.precio_unitario),
-    })))
 
     let stockNegativo = false
-    for (const it of itemsValidos) {
-      const prod = productos.find(p => String(p.id) === it.producto_id)
-      if (!prod?.controla_stock) continue
-      const nuevoStock = Number(prod.stock_actual) - Number(it.cantidad)
-      if (nuevoStock < 0) stockNegativo = true
-      await supabase.from('stock_movimientos').insert({
-        producto_id: prod.id, tipo: 'venta', cantidad: -Number(it.cantidad),
-        fecha: form.fecha, venta_id: venta.id, usuario: user?.nombre_usuario,
+
+    if (editId) {
+      // ── Edición: revertir el stock de los ítems viejos y aplicar el de los nuevos ──
+      const original = ventas.find(v => v.id === editId)
+      const deltaPorProducto = {} // producto_id -> variación neta (positivo = se repone, negativo = se descuenta)
+      ;(original?.venta_items || []).forEach(it => {
+        deltaPorProducto[it.producto_id] = (deltaPorProducto[it.producto_id] || 0) + Number(it.cantidad)
       })
-      await supabase.from('productos').update({ stock_actual: nuevoStock }).eq('id', prod.id)
+      itemsValidos.forEach(it => {
+        const pid = parseInt(it.producto_id)
+        deltaPorProducto[pid] = (deltaPorProducto[pid] || 0) - Number(it.cantidad)
+      })
+
+      for (const [prodIdStr, delta] of Object.entries(deltaPorProducto)) {
+        if (delta === 0) continue
+        const prod = productos.find(p => p.id === Number(prodIdStr))
+        if (!prod?.controla_stock) continue
+        const nuevoStock = Number(prod.stock_actual) + delta
+        if (nuevoStock < 0) stockNegativo = true
+        await supabase.from('stock_movimientos').insert({
+          producto_id: prod.id, tipo: 'ajuste', cantidad: delta,
+          fecha: fechaHoy(), venta_id: editId, usuario: user?.nombre_usuario,
+          observacion: `Corrección por edición de venta N° ${String(original.numero).padStart(4, '0')}`,
+        })
+        await supabase.from('productos').update({ stock_actual: nuevoStock }).eq('id', prod.id)
+      }
+
+      const cobrado = original?.venta_cobros?.reduce((s, vc) => s + Number(vc.monto), 0) || 0
+      const estado = form.forma_pago !== 'fiado' ? 'pagada' : (cobrado >= total ? 'pagada' : 'pendiente')
+
+      const { error } = await supabase.from('ventas').update({ ...payloadBase, estado }).eq('id', editId)
+      if (error) { setSaving(false); return setMsg({ type: 'error', text: 'Error al actualizar la venta.' }) }
+
+      await supabase.from('venta_items').delete().eq('venta_id', editId)
+      await supabase.from('venta_items').insert(itemsValidos.map(it => ({
+        venta_id: editId, producto_id: parseInt(it.producto_id),
+        cantidad: Number(it.cantidad), precio_unitario: Number(it.precio_unitario),
+        subtotal: Number(it.cantidad) * Number(it.precio_unitario),
+      })))
+      setMsg({ type: 'success', text: 'Venta actualizada.' })
+    } else {
+      const payload = { ...payloadBase, estado: form.forma_pago === 'fiado' ? 'pendiente' : 'pagada', usuario: user?.nombre_usuario }
+      const { data: venta, error } = await supabase.from('ventas').insert(payload).select().single()
+      if (error || !venta) { setSaving(false); return setMsg({ type: 'error', text: 'Error al guardar la venta.' }) }
+
+      await supabase.from('venta_items').insert(itemsValidos.map(it => ({
+        venta_id: venta.id, producto_id: parseInt(it.producto_id),
+        cantidad: Number(it.cantidad), precio_unitario: Number(it.precio_unitario),
+        subtotal: Number(it.cantidad) * Number(it.precio_unitario),
+      })))
+
+      for (const it of itemsValidos) {
+        const prod = productos.find(p => String(p.id) === it.producto_id)
+        if (!prod?.controla_stock) continue
+        const nuevoStock = Number(prod.stock_actual) - Number(it.cantidad)
+        if (nuevoStock < 0) stockNegativo = true
+        await supabase.from('stock_movimientos').insert({
+          producto_id: prod.id, tipo: 'venta', cantidad: -Number(it.cantidad),
+          fecha: form.fecha, venta_id: venta.id, usuario: user?.nombre_usuario,
+        })
+        await supabase.from('productos').update({ stock_actual: nuevoStock }).eq('id', prod.id)
+      }
+      setMsg({ type: 'success', text: 'Venta registrada.' })
     }
 
-    setMsg({ type: 'success', text: 'Venta registrada.' })
     if (stockNegativo) setToast({ type: 'error', text: 'Atención: algún producto quedó con stock negativo.' })
-    setForm(FORM_EMPTY())
+    setForm(FORM_EMPTY()); setEditId(null)
     cargar()
     setSaving(false)
+  }
+
+  // ── Editar venta: carga el formulario de arriba con los datos de la venta ──
+  const editarVenta = (venta) => {
+    setForm({
+      fecha: venta.fecha,
+      cliente_id: venta.cliente_id ? String(venta.cliente_id) : 'consumidor_final',
+      items: (venta.venta_items || []).map(it => ({
+        producto_id: String(it.producto_id), cantidad: it.cantidad, precio_unitario: it.precio_unitario,
+      })),
+      forma_pago: venta.forma_pago,
+      cuenta_id: venta.cuenta_id ? String(venta.cuenta_id) : '',
+      fecha_vencimiento: venta.fecha_vencimiento || '',
+      observaciones: venta.observaciones || '',
+    })
+    setEditId(venta.id)
+    setVerVenta(null)
+    setMsg(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  const cancelarEdicionVenta = () => { setForm(FORM_EMPTY()); setEditId(null); setMsg(null) }
+
+  // ── Eliminar venta definitivamente (solo si nunca se le registró un cobro) ──
+  const confirmarEliminarVenta = async () => {
+    const venta = confirmEliminarVenta
+    if (venta.estado !== 'anulada') {
+      for (const it of venta.venta_items || []) {
+        const prod = productos.find(p => p.id === it.producto_id)
+        if (!prod?.controla_stock) continue
+        await supabase.from('productos').update({ stock_actual: Number(prod.stock_actual) + Number(it.cantidad) }).eq('id', prod.id)
+      }
+    }
+    await supabase.from('stock_movimientos').delete().eq('venta_id', venta.id)
+    await supabase.from('venta_cobros').delete().eq('venta_id', venta.id)
+    await supabase.from('venta_items').delete().eq('venta_id', venta.id)
+    await supabase.from('ventas').delete().eq('id', venta.id)
+    setConfirmEliminarVenta(null); setVerVenta(null)
+    setMsg({ type: 'success', text: 'Venta eliminada definitivamente.' })
+    cargar()
   }
 
   // ── Crear cliente nuevo desde la venta ─────────────────────────────────
@@ -264,18 +364,67 @@ export default function Ventas({ user }) {
   }
 
   // ── Producción (entrada de stock) ──────────────────────────────────────
-  const abrirProduccion = () => { setProduccionForm(PRODUCCION_EMPTY); setModalProduccion(true) }
+  const abrirProduccion = () => { setProduccionForm(PRODUCCION_EMPTY); setEditProdId(null); setModalProduccion(true) }
+
+  const cargarHistorialProduccion = async () => {
+    const { data } = await supabase.from('stock_movimientos')
+      .select('id,producto_id,cantidad,fecha,observacion,productos(nombre)')
+      .eq('tipo', 'entrada_produccion')
+      .order('fecha', { ascending: false }).order('id', { ascending: false })
+      .limit(50)
+    setHistorialProduccion(data || [])
+  }
+  const abrirHistorialProduccion = async () => { await cargarHistorialProduccion(); setModalHistorialProd(true) }
+
+  const editarProduccion = (mov) => {
+    setProduccionForm({ producto_id: String(mov.producto_id), cantidad: String(mov.cantidad), fecha: mov.fecha, observacion: mov.observacion || '' })
+    setEditProdId(mov.id)
+    setModalHistorialProd(false)
+    setModalProduccion(true)
+  }
+
   const guardarProduccion = async () => {
     const { producto_id, cantidad, fecha, observacion } = produccionForm
     if (!producto_id || !cantidad || Number(cantidad) <= 0) return setMsg({ type: 'error', text: 'Seleccioná el producto e ingresá una cantidad.' })
     const prod = productos.find(p => String(p.id) === producto_id)
-    await supabase.from('stock_movimientos').insert({
-      producto_id: parseInt(producto_id), tipo: 'entrada_produccion',
-      cantidad: Number(cantidad), fecha, observacion: observacion || null, usuario: user?.nombre_usuario,
-    })
-    await supabase.from('productos').update({ stock_actual: Number(prod.stock_actual) + Number(cantidad) }).eq('id', producto_id)
-    setModalProduccion(false)
-    setMsg({ type: 'success', text: 'Producción registrada.' })
+
+    if (editProdId) {
+      const original = historialProduccion.find(m => m.id === editProdId)
+      const oldProductoId = original?.producto_id
+      const oldCantidad = original ? Number(original.cantidad) : 0
+      await supabase.from('stock_movimientos').update({
+        producto_id: parseInt(producto_id), cantidad: Number(cantidad), fecha, observacion: observacion || null,
+      }).eq('id', editProdId)
+      if (oldProductoId === parseInt(producto_id)) {
+        const delta = Number(cantidad) - oldCantidad
+        await supabase.from('productos').update({ stock_actual: Number(prod.stock_actual) + delta }).eq('id', producto_id)
+      } else {
+        const prodOld = productos.find(p => p.id === oldProductoId)
+        if (prodOld) await supabase.from('productos').update({ stock_actual: Number(prodOld.stock_actual) - oldCantidad }).eq('id', oldProductoId)
+        await supabase.from('productos').update({ stock_actual: Number(prod.stock_actual) + Number(cantidad) }).eq('id', producto_id)
+      }
+      setMsg({ type: 'success', text: 'Producción actualizada.' })
+    } else {
+      await supabase.from('stock_movimientos').insert({
+        producto_id: parseInt(producto_id), tipo: 'entrada_produccion',
+        cantidad: Number(cantidad), fecha, observacion: observacion || null, usuario: user?.nombre_usuario,
+      })
+      await supabase.from('productos').update({ stock_actual: Number(prod.stock_actual) + Number(cantidad) }).eq('id', producto_id)
+      setMsg({ type: 'success', text: 'Producción registrada.' })
+    }
+    setModalProduccion(false); setEditProdId(null)
+    cargar()
+  }
+
+  const pedirEliminarProduccion = (mov) => setConfirmEliminarProd(mov)
+  const confirmarEliminarProduccion = async () => {
+    const mov = confirmEliminarProd
+    const prod = productos.find(p => p.id === mov.producto_id)
+    if (prod) await supabase.from('productos').update({ stock_actual: Number(prod.stock_actual) - Number(mov.cantidad) }).eq('id', mov.producto_id)
+    await supabase.from('stock_movimientos').delete().eq('id', mov.id)
+    setConfirmEliminarProd(null)
+    setMsg({ type: 'success', text: 'Producción eliminada.' })
+    await cargarHistorialProduccion()
     cargar()
   }
 
@@ -363,7 +512,7 @@ export default function Ventas({ user }) {
       {/* ── Nueva venta ── */}
       {puedeCrear && (
         <div className="page-card">
-          <h3 style={{ marginBottom: 16, fontSize: 16, fontWeight: 700 }}>Nueva venta</h3>
+          <h3 style={{ marginBottom: 16, fontSize: 16, fontWeight: 700 }}>{editId ? 'Editar venta' : 'Nueva venta'}</h3>
           <div className="form-grid-2">
             <div className="form-group">
               <label>Fecha *</label>
@@ -445,9 +594,12 @@ export default function Ventas({ user }) {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
             <div style={{ fontSize: 18, fontWeight: 700 }}>Total: {gs(totalForm)} Gs.</div>
-            <button className="btn btn-green" onClick={guardarVenta} disabled={saving}>
-              {saving ? 'Guardando...' : 'Registrar venta'}
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {editId && <button className="btn btn-outline" onClick={cancelarEdicionVenta}>Cancelar edición</button>}
+              <button className="btn btn-green" onClick={guardarVenta} disabled={saving}>
+                {saving ? 'Guardando...' : editId ? 'Guardar cambios' : 'Registrar venta'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -456,7 +608,12 @@ export default function Ventas({ user }) {
       <div className="page-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <h3 style={{ fontSize: 16, fontWeight: 700 }}>Productos a la venta</h3>
-          {puedeCrear && <button className="btn btn-outline btn-sm" onClick={abrirProduccion}>+ Producción</button>}
+          {puedeCrear && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-outline btn-sm" onClick={abrirHistorialProduccion}>Historial de producción</button>
+              <button className="btn btn-outline btn-sm" onClick={abrirProduccion}>+ Producción</button>
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {productos.filter(p => p.activo).length === 0 ? (
@@ -600,11 +757,11 @@ export default function Ventas({ user }) {
       {/* ── Modal: producción ── */}
       {modalProduccion && (
         <Modal
-          title="Registrar producción"
-          onClose={() => setModalProduccion(false)}
+          title={editProdId ? 'Editar producción' : 'Registrar producción'}
+          onClose={() => { setModalProduccion(false); setEditProdId(null) }}
           footer={
             <>
-              <button className="btn btn-outline" onClick={() => setModalProduccion(false)}>Cancelar</button>
+              <button className="btn btn-outline" onClick={() => { setModalProduccion(false); setEditProdId(null) }}>Cancelar</button>
               <button className="btn btn-green" onClick={guardarProduccion}>Guardar</button>
             </>
           }
@@ -633,14 +790,62 @@ export default function Ventas({ user }) {
         </Modal>
       )}
 
+      {/* ── Modal: historial de producción ── */}
+      {modalHistorialProd && (
+        <Modal
+          size="lg"
+          title="Historial de producción"
+          onClose={() => setModalHistorialProd(false)}
+          footer={<button className="btn btn-outline" onClick={() => setModalHistorialProd(false)}>Cerrar</button>}
+        >
+          <div className="table-wrapper">
+            <table>
+              <thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Observación</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {historialProduccion.length === 0 ? (
+                  <tr><td colSpan={5} className="table-empty">Sin producción registrada.</td></tr>
+                ) : historialProduccion.map(mov => (
+                  <tr key={mov.id}>
+                    <td>{new Date(mov.fecha + 'T00:00:00').toLocaleDateString('es-PY')}</td>
+                    <td>{mov.productos?.nombre || '—'}</td>
+                    <td>{mov.cantidad}</td>
+                    <td>{mov.observacion || '-'}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn btn-blue btn-sm" onClick={() => editarProduccion(mov)}>Editar</button>
+                        <button className="btn btn-red btn-sm" onClick={() => pedirEliminarProduccion(mov)}>Eliminar</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Confirmar eliminación de producción ── */}
+      {confirmEliminarProd && (
+        <ConfirmDialog
+          title="Eliminar producción"
+          message={`¿Eliminar este registro de producción de "${confirmEliminarProd.productos?.nombre}" (${confirmEliminarProd.cantidad})? Se descuenta del stock actual.`}
+          confirmText="Eliminar"
+          onConfirm={confirmarEliminarProduccion}
+          onCancel={() => setConfirmEliminarProd(null)}
+        />
+      )}
+
       {/* ── Modal: ver detalle de venta ── */}
       {verVenta && (
         <VentaDetalleModal
           venta={verVenta}
           puedeAnular={puedeAnular}
+          puedeEditar={puedeCrear}
           usuario={user?.nombre_usuario}
           onClose={() => setVerVenta(null)}
           onAnular={(v) => setConfirmAnular(v)}
+          onEditar={editarVenta}
+          onEliminar={(v) => setConfirmEliminarVenta(v)}
         />
       )}
 
@@ -652,6 +857,17 @@ export default function Ventas({ user }) {
           confirmText="Anular"
           onConfirm={confirmarAnular}
           onCancel={() => setConfirmAnular(null)}
+        />
+      )}
+
+      {/* ── Confirmar eliminación definitiva de venta ── */}
+      {confirmEliminarVenta && (
+        <ConfirmDialog
+          title="Eliminar venta"
+          message={`¿Eliminar definitivamente la venta N° ${String(confirmEliminarVenta.numero).padStart(4, '0')}? Se borra el registro por completo (no queda como "Anulada") y se restituye el stock. Esta acción no se puede deshacer.`}
+          confirmText="Eliminar definitivamente"
+          onConfirm={confirmarEliminarVenta}
+          onCancel={() => setConfirmEliminarVenta(null)}
         />
       )}
 
