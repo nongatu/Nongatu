@@ -94,6 +94,7 @@ El sidebar desaparece. Navegación con BARRA INFERIOR fija tipo app: Inicio, Cli
 - Español siempre; montos con gs() de src/utils/helpers.js.
 - Cambios de BD solo aditivos; schema.sql es la fuente de verdad; migraciones nuevas solo las que estén en docs/.
 - No romper lógica existente (pastaje, recibos, créditos, permisos, tareas).
+- Ninguna pantalla se considera terminada solo por comparar capturas del usuario a simple vista: antes de decir que una pantalla "ya coincide" con docs/nongatu-rediseno-final.html, levantar el dev server, sacar una captura real (headless, ej. Playwright) de la pantalla y compararla lado a lado con una captura de la maqueta al mismo tamaño de viewport. Prestar atención en particular a que cada tarjeta/card tenga fondo, borde y padding visibles (clases combinadas correctamente, ej. dash-card + dash-card-flex) — un layout puede "verse bien" en la estructura y aun así faltarle el fondo blanco.
 
 ## Reglas — Módulos Ventas y Gastos (Ñongatu)
 - NUNCA ejecutar ni proponer DROP, TRUNCATE ni DELETE sobre tablas o datos existentes de Supabase.
