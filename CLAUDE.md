@@ -100,4 +100,4 @@ El sidebar desaparece. Navegación con BARRA INFERIOR fija tipo app: Inicio, Cli
 - Cambios de base de datos SOLO aditivos. La migración ya está escrita en docs/migracion-ventas-gastos.sql: no inventar otra ni modificar tablas existentes más allá de lo que ese archivo indica.
 - NO romper la lógica existente de Animales, Cobros de pastaje, Recibos, Créditos, Tareas, Login ni permisos. Respetar el sistema de permisos (user.permisos, rol Administrador) en todo lo nuevo.
 - Textos en español y montos con el helper gs() de src/utils/helpers.js (ej: 23.040.000 Gs.).
-- Trabajar siempre en la rama `ventas-gastos`. Commit al final de cada tarea con mensaje claro en español, y verificar que `npm run build` pase sin errores.
+- Trabajar siempre directo en la rama `main` (no crear ni usar ramas de feature). Verificar que `npm run build` pase sin errores, hacer commit al final de cada tarea con mensaje claro en español, y SIEMPRE terminar con `git push` a `origin main` — ninguna tarea queda "terminada" sin ese push.
