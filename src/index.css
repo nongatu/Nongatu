@@ -122,8 +122,8 @@ h1, h2, h3, h4,
    SIDEBAR
    ============================================= */
 .sidebar {
-  width: 200px;
-  min-width: 200px;
+  width: var(--sb-w);
+  min-width: var(--sb-w);
   background: var(--sidebar-bg);
   display: flex;
   flex-direction: column;
@@ -307,20 +307,20 @@ h1, h2, h3, h4,
    MAIN CONTENT
    ============================================= */
 .main-content {
-  margin-left: 200px;
+  margin-left: var(--sb-w);
   flex: 1;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  max-width: calc(100vw - 200px);
+  max-width: calc(100vw - var(--sb-w));
   overflow-x: hidden;
   transition: margin-left 0.25s ease, max-width 0.25s ease;
 }
 
 /* Sidebar colapsable (solo desktop; en móvil el sidebar usa el overlay de siempre) */
 @media (min-width: 769px) {
-  .sidebar.collapsed { width: 72px; min-width: 72px; }
-  .main-content.collapsed { margin-left: 72px; max-width: calc(100vw - 72px); }
+  .sidebar.collapsed { width: var(--sb-min); min-width: var(--sb-min); }
+  .main-content.collapsed { margin-left: var(--sb-min); max-width: calc(100vw - var(--sb-min)); }
   .sidebar.collapsed .sidebar-title { display: none; }
   .sidebar.collapsed .sidebar-title-row { justify-content: center; padding: 18px 0 14px; }
   .sidebar.collapsed .nav-label { display: none; }
