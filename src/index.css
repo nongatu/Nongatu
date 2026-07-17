@@ -884,7 +884,7 @@ tr:hover td { background: var(--table-row-hover); }
 }
 .dash-row2 {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
   gap: 10px;
   min-height: 0;
 }
