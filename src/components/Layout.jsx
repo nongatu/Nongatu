@@ -19,6 +19,9 @@ const IconCobros = () => (
 const IconGastos = () => (
   <svg viewBox="0 0 24 24"><path d="M4 12.5v5A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5v-5"/><path d="M12 14V4M8.5 7.5 12 4l3.5 3.5"/></svg>
 )
+const IconProveedores = () => (
+  <svg viewBox="0 0 24 24"><path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5z"/><path d="M4 8.5 12 13l8-4.5M12 13v7"/></svg>
+)
 const IconReportes = () => (
   <svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>
 )
@@ -41,8 +44,9 @@ const NAV = [
   { key: 'animales',  label: 'Animales', Icon: IconAnimales },
   { key: 'ventas',    label: 'Ventas',   Icon: IconVentas },
   { key: 'cobros',    label: 'Cobros',   Icon: IconCobros },
-  { key: 'gastos',    label: 'Gastos',   Icon: IconGastos },
-  { key: 'reportes',  label: 'Reportes', Icon: IconReportes },
+  { key: 'gastos',      label: 'Gastos',      Icon: IconGastos },
+  { key: 'proveedores', label: 'Proveedores', Icon: IconProveedores, badge: 'nuevo' },
+  { key: 'reportes',    label: 'Reportes',    Icon: IconReportes },
 ]
 
 const PROXIMAMENTE = [
@@ -94,8 +98,9 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
       animales:   'ver_animales',
       ventas:     'ver_ventas',
       cobros:     'ver_cobros',
-      gastos:     'ver_gastos',
-      reportes:   'ver_reportes',
+      gastos:      'ver_gastos',
+      proveedores: 'ver_gastos',
+      reportes:    'ver_reportes',
       categorias: 'ver_categorias',
     }
     return map[key] !== undefined ? (map[key] ? perms[map[key]] : false) : key === 'dashboard'
@@ -134,6 +139,7 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
             >
               <span className="nav-icon"><n.Icon /></span>
               <span className="nav-label">{n.label}</span>
+              {n.badge && <span className="nav-badge nuevo">{n.badge}</span>}
             </button>
           ))}
 
