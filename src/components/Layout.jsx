@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Toast from './ui/Toast.jsx'
 
 const IconInicio = () => (
@@ -34,18 +34,15 @@ const IconSalarios = () => (
 const IconCajaBancos = () => (
   <svg viewBox="0 0 24 24"><path d="M4 10 12 4.5 20 10"/><path d="M5.5 10V18M10 10v8M14 10v8M18.5 10V18"/><path d="M4 18h16M4 20.5h16"/></svg>
 )
-const IconSalir = () => (
-  <svg viewBox="0 0 24 24"><path d="M9 4H6.5A2.5 2.5 0 0 0 4 6.5v11A2.5 2.5 0 0 0 6.5 20H9"/><path d="M15 8l4 4-4 4M19 12H9"/></svg>
-)
 
 const NAV = [
-  { key: 'dashboard', label: 'Inicio',   Icon: IconInicio },
-  { key: 'clientes',  label: 'Clientes', Icon: IconClientes },
-  { key: 'animales',  label: 'Animales', Icon: IconAnimales },
-  { key: 'ventas',    label: 'Ventas',   Icon: IconVentas },
-  { key: 'cobros',    label: 'Cobros',   Icon: IconCobros },
+  { key: 'dashboard',   label: 'Inicio',      Icon: IconInicio },
+  { key: 'clientes',    label: 'Clientes',    Icon: IconClientes },
+  { key: 'animales',    label: 'Animales',    Icon: IconAnimales },
+  { key: 'ventas',      label: 'Ventas',      Icon: IconVentas },
+  { key: 'cobros',      label: 'Cobros',      Icon: IconCobros },
   { key: 'gastos',      label: 'Gastos',      Icon: IconGastos },
-  { key: 'proveedores', label: 'Proveedores', Icon: IconProveedores, badge: 'nuevo' },
+  { key: 'proveedores', label: 'Proveedores', Icon: IconProveedores, etq: 'nuevo' },
   { key: 'reportes',    label: 'Reportes',    Icon: IconReportes },
 ]
 
@@ -66,6 +63,13 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('nongatu_sidebar_collapsed') === 'true')
   const [toast, setToast] = useState(null)
   const perms = user?.permisos || {}
+
+  // Igual que la maqueta: el colapso se controla con la clase "min" en <body>,
+  // así las reglas `body.min .sb{...}` del CSS literal aplican tal cual.
+  useEffect(() => {
+    document.body.classList.toggle('min', collapsed)
+    return () => document.body.classList.remove('min')
+  }, [collapsed])
 
   const toggleCollapsed = () => {
     setCollapsed(c => {
@@ -94,14 +98,14 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
   const canSee = (key) => {
     if (user?.rol === 'Administrador') return true
     const map = {
-      clientes:   'ver_clientes',
-      animales:   'ver_animales',
-      ventas:     'ver_ventas',
-      cobros:     'ver_cobros',
+      clientes:    'ver_clientes',
+      animales:    'ver_animales',
+      ventas:      'ver_ventas',
+      cobros:      'ver_cobros',
       gastos:      'ver_gastos',
       proveedores: 'ver_gastos',
       reportes:    'ver_reportes',
-      categorias: 'ver_categorias',
+      categorias:  'ver_categorias',
     }
     return map[key] !== undefined ? (map[key] ? perms[map[key]] : false) : key === 'dashboard'
   }
@@ -111,106 +115,89 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
   const initial = displayName.charAt(0).toUpperCase()
 
   return (
-    <div className="app-layout">
+    <div className="app">
       <div className={`sidebar-overlay ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
 
-      <aside className={`sidebar ${open ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>
-        <div className="sidebar-title-row">
-          <div className="sidebar-title">
-            <span className="marca">ñ<span className="o">o</span>ngatu</span>
-          </div>
-          <span className="marca-min">ñ</span>
-          <button
-            className="sidebar-collapse-btn"
-            onClick={toggleCollapsed}
-            title={collapsed ? 'Expandir menú' : 'Minimizar menú'}
-          >
+      <aside className={`sb ${open ? 'open' : ''}`}>
+        <div className="sb-head">
+          <div className="marca">ñ<span className="o">o</span>ngatu</div>
+          <div className="marca-min">ñ</div>
+          <button className="sb-toggle" onClick={toggleCollapsed} title={collapsed ? 'Expandir menú' : 'Minimizar menú'}>
             {collapsed ? '›' : '‹'}
           </button>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sb-nav">
           {NAV.filter(n => canSee(n.key)).map(n => (
             <button
               key={n.key}
-              className={`nav-item ${currentPage === n.key ? 'active' : ''}`}
+              className={`nav-it ${currentPage === n.key ? 'on' : ''}`}
               onClick={() => navigate(n.key)}
               data-tip={n.label}
             >
-              <span className="nav-icon"><n.Icon /></span>
-              <span className="nav-label">{n.label}</span>
-              {n.badge && <span className="nav-badge nuevo">{n.badge}</span>}
+              <n.Icon /><span className="txt">{n.label}</span>
+              {n.etq && <span className="etq">{n.etq}</span>}
             </button>
           ))}
 
-          <div className="nav-sep">Próximamente</div>
+          <div className="sb-sep">Próximamente</div>
           {PROXIMAMENTE.map(p => (
             <button
               key={p.label}
-              className="nav-item soon"
+              className="nav-it soon"
               onClick={() => avisoProximamente(p.msg)}
               data-tip={p.label}
             >
-              <span className="nav-icon"><p.Icon /></span>
-              <span className="nav-label">{p.label}</span>
-              <span className="nav-badge">pronto</span>
+              <p.Icon /><span className="txt">{p.label}</span>
+              <span className="etq gris">pronto</span>
             </button>
           ))}
         </nav>
 
-        {/* ── Configuración (solo admin, fija encima del perfil) ── */}
-        {user?.rol === 'Administrador' && (
-          <div style={{ padding: '0 8px 6px' }}>
+        <div className="sb-pie">
+          {user?.rol === 'Administrador' && (
             <button
-              className={`nav-item ${currentPage === 'configuracion' ? 'active' : ''}`}
+              className={`nav-it ${currentPage === 'configuracion' ? 'on' : ''}`}
               onClick={() => navigate('configuracion')}
-              style={{ width: '100%' }}
+              style={{ marginBottom: 6 }}
               data-tip="Configuración"
             >
-              <span className="nav-icon"><IconConfig /></span>
-              <span className="nav-label">Configuración</span>
+              <IconConfig /><span className="txt">Configuración</span>
             </button>
-          </div>
-        )}
-
-        {/* ── Perfil / Logout ── */}
-        <div className="sidebar-logout">
+          )}
           <button
-            className={`sidebar-profile-btn ${currentPage === 'perfil' ? 'active' : ''}`}
+            className="sb-user"
             onClick={() => navigate('perfil')}
+            style={{ border: 'none', cursor: 'pointer', width: '100%' }}
             title="Mi perfil"
           >
-            <div className="sidebar-avatar">
+            <div className="av">
               {foto
-                ? <img src={foto} alt="perfil" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}} />
-                : <span style={{fontSize:14,color:'var(--sb-bot)',fontWeight:700}}>{initial}</span>
+                ? <img src={foto} alt="perfil" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                : initial
               }
             </div>
-            <div style={{flex:1,minWidth:0}} className="nav-label">
-              <div style={{fontSize:12.5,fontWeight:600,color:'#fff',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{displayName}</div>
-              <div style={{fontSize:10,color:'#b9c8ea',marginTop:1}}>{user?.rol}</div>
+            <div>
+              <div className="nom">{displayName}</div>
+              <div className="rol">{user?.rol}</div>
             </div>
           </button>
-          <button onClick={onLogout} className="sidebar-logout-btn" title="Cerrar sesión">
-            <IconSalir />
-            <span className="nav-label">Cerrar sesión</span>
-          </button>
+          <button className="sb-salir" onClick={onLogout}>↪ <span className="txt">Cerrar sesión</span></button>
         </div>
       </aside>
 
-      <div className={`main-content ${collapsed ? 'collapsed' : ''}`}>
-        {/* Topbar móvil — solo visible en pantallas chicas */}
+      <main>
         <div className="mobile-topbar">
           <button className="mobile-menu-btn" onClick={() => setOpen(true)}>
             <span /><span /><span />
           </button>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--texto)' }}>
             {ALL_LABELS[currentPage] || 'Ñongatu'}
           </div>
           <div style={{ width: 36 }} />
         </div>
-        <div className="page-content">{children}</div>
-      </div>
+        <section className="vis">{children}</section>
+      </main>
 
       {toast && <Toast text={toast.text} type={toast.type} onClose={() => setToast(null)} />}
     </div>
