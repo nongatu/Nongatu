@@ -409,6 +409,13 @@ export default function Dashboard({ user, onNavigate }) {
   const total6 = ingresos6 + gastos6
   const CIRCUNF = 2 * Math.PI * 38
   const ingresosLen = total6 > 0 ? (ingresos6 / total6) * CIRCUNF : 0
+  const mesCorto = (periodo) => {
+    const [y, m] = periodo.split('-')
+    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('es-PY', { month: 'short' }).replace('.', '')
+  }
+  const rangoMeses = chartMeses.length === 6
+    ? `${mesCorto(chartMeses[0].periodo)}–${mesCorto(chartMeses[5].periodo)} ${chartMeses[5].periodo.split('-')[0]}`
+    : ''
 
   if (loading) return <div className="spinner" />
 
@@ -578,7 +585,7 @@ export default function Dashboard({ user, onNavigate }) {
           {/* Ingresos vs gastos — dona */}
           <div className="dash-card c-donut" style={{ flexShrink: 0 }}>
             <div style={{ fontSize: 14.5, fontWeight: 600 }}>Ingresos vs gastos</div>
-            <div className="num" style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 10 }}>Últimos 6 meses (acumulado)</div>
+            <div className="num" style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 10 }}>Últimos 6 meses (acumulado){rangoMeses ? ` · ${rangoMeses}` : ''}</div>
             <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
               <svg width="90" height="90" viewBox="0 0 100 100" style={{ flexShrink: 0 }}>
                 <circle cx="50" cy="50" r="38" fill="none" stroke="var(--borde-suave)" strokeWidth="13" />
