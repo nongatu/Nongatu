@@ -336,10 +336,13 @@ td.n,th.n{text-align:right}
    COMPATIBILIDAD TEMPORAL — NO es parte de la maqueta
    Pantallas que todavía no pasaron por el rediseño (Clientes, Animales,
    Ventas, Cobros, Gastos, Reportes, Configuración, Usuarios, Categorías,
-   Productos, Proveedores, Perfil, ClienteFicha, Dashboard, Login y los
-   componentes ui/Modal, ui/Toast, ui/ConfirmDialog) siguen usando estas
-   clases viejas. Se migran de a una en las próximas etapas: cuando una
-   pantalla se rediseñe, sus reglas correspondientes se borran de acá.
+   Productos, Proveedores, Perfil, ClienteFicha, Login y los componentes
+   ui/Modal, ui/Toast, ui/ConfirmDialog) siguen usando estas clases
+   viejas. Dashboard (Inicio) ya se migró a las clases literales de la
+   maqueta (#inicio/.saludo/.krow/.kpi/.dgrid/.dcol/.dder/.d2/.card/
+   .bigrow/.bignum/.pend/.acti/.tarea/.cc/.brow). Se migran de a una en
+   las próximas etapas: cuando una pantalla se rediseñe, sus reglas
+   correspondientes se borran de acá.
    Todos los colores/medidas de abajo salen de los tokens de arriba,
    nunca se repiten valores sueltos nuevos.
    ============================================================= */
@@ -354,7 +357,6 @@ img, video, input, select, textarea, button { max-width: 100%; }
 h1, h2, h3, h4,
 .section-header h2,
 .login-logo h1,
-.metric-card .value,
 .cobro-card .value,
 .modal h3 {
   font-family: var(--disp);
@@ -414,41 +416,6 @@ h1, h2, h3, h4,
   gap:5px; background:none; border:none; cursor:pointer; padding:4px; border-radius:8px;
 }
 .mobile-menu-btn span{ display:block; width:22px; height:2px; background:var(--texto); border-radius:2px; }
-
-/* ---- Dashboard (Inicio) — clases propias hasta migrarlo a las
-   literales de la maqueta (#inicio/.dgrid/.dcol/.dder/.d2/.card) ---- */
-.dash-shell { display:flex; flex-direction:column; height: calc(100dvh - 76px); gap:10px; overflow:hidden; }
-.dash-stats { flex-shrink:0; }
-.dash-body { display:grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap:10px; flex:1; min-height:0; overflow:hidden; }
-.dash-col { display:grid; gap:10px; min-height:0; min-width:0; overflow:hidden; }
-.dash-row2 { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1.15fr); gap:10px; min-height:0; }
-.dash-card { background:var(--card); border:1px solid var(--borde); border-radius:14px; padding:13px 16px; min-height:0; min-width:0; }
-.dash-card-flex { display:flex; flex-direction:column; height:100%; min-height:0; min-width:0; overflow:hidden; }
-.dash-scroll { overflow-y:auto; min-height:0; }
-.dash-card-flex .dash-scroll { flex:1; }
-@media (max-width:1080px) {
-  .dash-shell { height:auto; overflow:visible; }
-  .dash-body { grid-template-columns:1fr; overflow:visible; }
-  .dash-row2 { grid-template-columns:1fr 1fr; }
-  .dash-col { display:flex; flex-direction:column; overflow:visible; }
-  .dash-card-flex { height:auto; overflow:visible; }
-  .dash-scroll { overflow-y:visible; max-height:none; }
-}
-@media (max-width:640px) { .dash-row2 { grid-template-columns:1fr; } }
-@media (max-width:760px) {
-  .dash-body { display:flex; flex-direction:column; gap:13px; }
-  .dash-col, .dash-row2 { display:contents; }
-  .c-past{order:1} .c-tar{order:2} .c-pend{order:3} .c-acti{order:4} .c-donut{order:5} .c-prod{order:6}
-}
-.metric-cards { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; margin-bottom:20px; }
-.metric-card { border-radius:var(--r); padding:12px 15px; border:1px solid var(--borde); box-shadow:var(--sombra); min-width:0; background:var(--card); }
-.metric-card .label { font-size:10px; font-weight:700; letter-spacing:.7px; text-transform:uppercase; color:var(--texto-2); margin-bottom:3px; }
-.metric-card .value { font-size:22px; font-weight:700; word-break:break-word; }
-.metric-card.green  { background:var(--verde-suave); border-color:#c9ecd6; } .metric-card.green .value  { color:var(--verde); }
-.metric-card.blue   { background:var(--azul-suave); border-color:#cddcf7; } .metric-card.blue .value   { color:var(--azul); }
-.metric-card.orange { background:var(--ambar-suave); border-color:#f3e3bd; } .metric-card.orange .value { color:var(--ambar); }
-.metric-card.red    { background:var(--rojo-suave); border-color:#f6d5d5; } .metric-card.red .value    { color:var(--rojo); }
-.metric-card.purple { background:var(--viole-suave); border-color:#e4dcf7; } .metric-card.purple .value { color:var(--viole); }
 
 /* ---- Formularios ---- */
 .form-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin-bottom:14px; }
@@ -555,13 +522,10 @@ table { min-width:520px; }
 
 /* ---- Responsive de pantallas viejas ---- */
 @media (max-width:1024px) {
-  .metric-cards { grid-template-columns:repeat(2, minmax(0,1fr)); }
   .cobro-cards { grid-template-columns:repeat(2, minmax(0,1fr)); }
   .form-grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
 }
 @media (max-width:768px) {
-  .metric-cards { grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin-bottom:14px; }
-  .metric-card { padding:14px 12px; } .metric-card .value { font-size:19px; } .metric-card .label { font-size:10px; }
   .cobro-cards { grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
   .cobro-card { padding:12px; } .cobro-card .value { font-size:15px; } .cobro-card .label { font-size:11px; }
   .form-grid { grid-template-columns:minmax(0,1fr); gap:10px; }
@@ -607,7 +571,6 @@ table { min-width:520px; }
   .table-animales th:nth-child(11), .table-animales td:nth-child(11) { display:none; }
 }
 @media (max-width:390px) {
-  .metric-card .value { font-size:17px; }
   .cobro-card .value { font-size:14px; }
   td, th { padding:8px 10px; font-size:12px; }
   .btn { font-size:13px; padding:9px 12px; }

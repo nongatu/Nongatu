@@ -4,8 +4,6 @@ import { gs, periodoLabel, fechaHoy } from '../utils/helpers'
 import { getFraseHoy } from './Configuracion'
 import Toast from './ui/Toast.jsx'
 
-const PRODUCTO_COLORS = ['#f59e0b','#10b981','#22c55e','#ef4444','#3b82f6','#8b5cf6','#06b6d4']
-
 const FRASES_DEFAULT = [
   '¡Que los números y el campo te acompañen hoy!',
   '¡Un buen día para mantener todo bajo control!',
@@ -32,24 +30,23 @@ const formatCompacto = (n) => {
   return `${sign}${gs(abs)}`
 }
 
-// ── Barras: ventas del mes por producto ───────────────────────────────────────
+// ── Barras: ventas del mes por producto ── (.brow/.btrack/.bfill de la maqueta)
 function ProductoBars({ productos }) {
   if (!productos.length) {
     return <p style={{ color: 'var(--texto-2)', fontSize: 13 }}>Sin ventas registradas este mes.</p>
   }
   const maxVal = Math.max(...productos.map(p => p.monto), 1)
+  const colores = ['#f59e0b', '#10b981', '#22c55e', '#ef4444', '#3b82f6', '#8b5cf6', '#06b6d4']
   return (
-    <div className="num" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+    <>
       {productos.map((p, i) => (
-        <div key={p.nombre} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
-          <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</span>
-          <div style={{ background: 'var(--borde-suave)', borderRadius: 6, height: 12, overflow: 'hidden' }}>
-            <div style={{ width: `${Math.round((p.monto / maxVal) * 100)}%`, height: '100%', background: PRODUCTO_COLORS[i % PRODUCTO_COLORS.length], borderRadius: 6 }} />
-          </div>
-          <span style={{ textAlign: 'right', fontWeight: 600, color: '#33405e' }}>{gs(p.monto)}</span>
+        <div key={p.nombre} className="brow">
+          <span className="bn">{p.nombre}</span>
+          <div className="btrack"><div className="bfill" style={{ width: `${Math.round((p.monto / maxVal) * 100)}%`, background: colores[i % colores.length] }} /></div>
+          <span className="bm">{gs(p.monto)}</span>
         </div>
       ))}
-    </div>
+    </>
   )
 }
 
@@ -126,7 +123,7 @@ export default function Dashboard({ user, onNavigate }) {
           id: 'c' + c.id, fecha: c.created_at,
           titulo: c.clientes?.nombre_razon_social || '',
           subtitulo: `Cobro pastaje · ${periodoLabel(c.periodo)}`,
-          monto: Number(c.total), icon: '✔', bg: 'var(--azul-suave)',
+          monto: Number(c.total), icon: '✔', cls: 'z',
         })),
         ...ventasRecientes.map(v => ({
           id: 'v' + v.id, fecha: v.created_at,
@@ -134,13 +131,13 @@ export default function Dashboard({ user, onNavigate }) {
           subtitulo: `Venta N° ${String(v.numero).padStart(4, '0')}`,
           monto: Number(v.total),
           icon: v.estado === 'pendiente' ? '🧾' : v.estado === 'anulada' ? '✕' : '💰',
-          bg: v.estado === 'pendiente' ? 'var(--ambar-suave)' : v.estado === 'anulada' ? '#f1f4f9' : 'var(--verde-suave)',
+          cls: v.estado === 'pendiente' ? 'a' : v.estado === 'anulada' ? 'r' : 'v',
         })),
         ...gastosRecientes.map(g => ({
           id: 'g' + g.id, fecha: g.created_at,
           titulo: g.proveedor || g.descripcion,
           subtitulo: `Gasto · ${g.categorias_gasto?.nombre || 'Sin categoría'}`,
-          monto: Number(g.monto), icon: '💸', bg: 'var(--rojo-suave)',
+          monto: Number(g.monto), icon: '💸', cls: 'r',
         })),
       ].sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 8)
       setActividadReciente(actividad)
@@ -392,13 +389,13 @@ export default function Dashboard({ user, onNavigate }) {
   ].join(' · ')
 
   const CARDS = [
-    { label: 'Ingresos del mes', value: gs(fin.ingresosMes) + ' Gs.', cls: 'green',
+    { label: 'Ingresos del mes', value: gs(fin.ingresosMes) + ' Gs.', cls: 'verde',
       detalle: `Pastaje ${gs(fin.cobradoMesPastaje)} · Ventas ${gs(fin.ingresosVentasMes)}` },
-    { label: 'Gastos del mes', value: gs(fin.gastosMes) + ' Gs.', cls: 'red',
+    { label: 'Gastos del mes', value: gs(fin.gastosMes) + ' Gs.', cls: 'rojo',
       detalle: fin.gastosMesCount > 0 ? `${fin.gastosMesCount} comprobante${fin.gastosMesCount === 1 ? '' : 's'} · todo al contado` : 'Sin gastos registrados' },
-    { label: 'Resultado del mes', value: (resultadoMes >= 0 ? '+' : '') + gs(resultadoMes) + ' Gs.', cls: 'purple',
+    { label: 'Resultado del mes', value: (resultadoMes >= 0 ? '+' : '') + gs(resultadoMes) + ' Gs.', cls: 'viole',
       detalle: `Ingresos − gastos · ${mesLabelCap}` },
-    { label: 'Por cobrar', value: gs(porCobrarTotal) + ' Gs.', cls: 'orange',
+    { label: 'Por cobrar', value: gs(porCobrarTotal) + ' Gs.', cls: 'ambar',
       detalle: `Fiados ${gs(fin.pendienteFiados)} · Pastaje ${gs(fin.pendientePastaje)}` },
   ]
 
@@ -419,113 +416,99 @@ export default function Dashboard({ user, onNavigate }) {
 
   if (loading) return <div className="spinner" />
 
-  const rightColRows = puedeVerTareas ? 'auto auto minmax(0,1fr)' : 'auto minmax(0,1fr)'
-
   return (
-    <div className="dash-shell">
-
+    <>
       {/* ── Bienvenida ── */}
-      <div style={{
-        background: 'linear-gradient(92deg, var(--sb-top), var(--sb-bot))',
-        borderRadius: 'var(--r)', padding: '14px 20px', color: '#fff',
-        display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', flexShrink: 0,
-      }}>
+      <div className="saludo">
         <div>
-          <div style={{ fontFamily: 'var(--disp)', fontSize: 19, fontWeight: 600, letterSpacing: '-0.3px' }}>
-            Bienvenida a Ñongatu, {nombreSaludo}
-          </div>
-          <div style={{ fontSize: 11.5, color: '#c4d2f0', marginTop: 2 }}>{fechaCap}{frase ? ` · ${frase}` : ''}</div>
-          <div className="num" style={{ fontSize: 12, color: '#eaf0fd', marginTop: 6, display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--hoja)', flexShrink: 0 }} />
-            {parteTexto}
-          </div>
+          <h1>Bienvenida a Ñongatu, {nombreSaludo}</h1>
+          <div className="f">{fechaCap}{frase ? ` · ${frase}` : ''}</div>
+          <div className="parte num">{parteTexto}</div>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-green" onClick={() => onNavigate?.('ventas')}>+ Nueva venta</button>
-          <button className="btn btn-outline" onClick={() => onNavigate?.('gastos')}>+ Nuevo gasto</button>
-          <button className="btn btn-outline" onClick={() => onNavigate?.('cobros')}>Cobros</button>
+        <div className="accs">
+          <button className="btn" onClick={() => onNavigate?.('ventas')}>+ Nueva venta</button>
+          <button className="btn linea" onClick={() => onNavigate?.('gastos')}>+ Nuevo gasto</button>
+          <button className="btn linea" onClick={() => onNavigate?.('cobros')}>Cobros</button>
         </div>
       </div>
 
       {/* ── 4 tarjetas de indicadores ── */}
-      <div className="metric-cards dash-stats" style={{ marginBottom: 0 }}>
+      <div className="krow num">
         {CARDS.map(card => (
-          <div key={card.label} className={`metric-card ${card.cls}`}>
-            <div className="label">{card.label}</div>
-            <div className="value num">{card.value}</div>
-            <div className="num" style={{ fontSize: 11, color: 'var(--texto-2)', marginTop: 2 }}>{card.detalle}</div>
+          <div key={card.label} className={`kpi ${card.cls}`}>
+            <div className="kl">{card.label}</div>
+            <div className="kv">{card.value}</div>
+            <div className="kd">{card.detalle}</div>
           </div>
         ))}
       </div>
 
-      {/* ── Cuerpo: columna principal (2fr) | columna derecha (1fr) ── */}
-      <div className="dash-body">
+      {/* ── Cuerpo: columna principal (1.85fr) | columna derecha (1fr) ── */}
+      <div className="dgrid">
 
         {/* ── Columna principal ── */}
-        <div className="dash-col" style={{ gridTemplateRows: 'auto minmax(0,1fr)' }}>
+        <div className="dcol">
 
           {/* Animales en pastura */}
-          <div className="dash-card c-past" style={{ flexShrink: 0 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 600, marginBottom: 2 }}>Animales en pastura</div>
-            <div style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 6 }}>
-              El número grande, de un vistazo · el detalle vive en Animales y Reportes
-            </div>
+          <div className="card c-past" style={{ paddingBottom: 12 }}>
+            <h3>Animales en pastura</h3>
+            <div className="sub">El número grande, de un vistazo · el detalle vive en Animales y Reportes</div>
             {porEspecie.length === 0 ? (
               <p style={{ color: 'var(--texto-2)', fontSize: 13 }}>Sin datos. Registrá categorías y animales.</p>
             ) : (
-              <div className="num" style={{ display: 'flex', gap: 22, alignItems: 'flex-end', flexWrap: 'wrap', margin: '4px 0 2px' }}>
+              <div className="bigrow num">
                 {porEspecie.map(esp => (
-                  <div key={esp.especie}>
-                    <div style={{ fontFamily: 'var(--disp)', fontWeight: 700, fontSize: 46, letterSpacing: '-1.5px', lineHeight: 1, color: 'var(--navy-900)' }}>{esp.total}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.7px', textTransform: 'uppercase', color: 'var(--texto-2)', marginTop: 4 }}>{esp.especie}</div>
+                  <div key={esp.especie} className="bignum">
+                    <div className="bv">{esp.total}</div>
+                    <div className="bl">{esp.especie}</div>
                   </div>
                 ))}
-                <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'var(--disp)', fontWeight: 700, fontSize: 46, letterSpacing: '-1.5px', lineHeight: 1, color: 'var(--verde)' }}>{totalAnimales}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.7px', textTransform: 'uppercase', color: 'var(--texto-2)', marginTop: 4 }}>Total en pastura</div>
+                <div className="bigtotal bignum">
+                  <div className="bv">{totalAnimales}</div>
+                  <div className="bl">Total en pastura</div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="dash-row2">
+          <div className="d2">
             {/* Pendientes de cobro */}
-            <div className="dash-card dash-card-flex c-pend">
-              <div style={{ fontSize: 14.5, fontWeight: 600, flexShrink: 0 }}>Pendientes de cobro</div>
-              <div className="num" style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 6, flexShrink: 0 }}>Total: {gs(porCobrarTotal)} Gs.</div>
-              <div className="dash-scroll">
+            <div className="card flexv c-pend">
+              <h3>Pendientes de cobro</h3>
+              <div className="sub num">Total: {gs(porCobrarTotal)} Gs.</div>
+              <div className="scrollea num">
                 {pendientes.length === 0 ? (
                   <p style={{ color: 'var(--texto-2)', fontSize: 13 }}>Sin pendientes de cobro. 🎉</p>
                 ) : pendientes.map(p => (
-                  <div key={p.id} className="num" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--borde-suave)', fontSize: 12.5 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.cliente}</div>
-                      <div style={{ fontSize: 11, color: 'var(--texto-2)' }}>{p.sub}</div>
+                  <div key={p.id} className="pend">
+                    <div>
+                      <div className="p1">{p.cliente}</div>
+                      <div className="p2">{p.sub}</div>
                     </div>
-                    <span style={{ fontWeight: 700, flexShrink: 0 }}>{gs(p.saldo)}</span>
+                    <span className="pm">{gs(p.saldo)}</span>
                     {p.tipo === 'venta'
-                      ? <button className="btn btn-green btn-sm" onClick={() => abrirCobroVenta(p.venta)}>Cobrar</button>
-                      : <button className="btn btn-outline btn-sm" onClick={() => onNavigate?.('cobros')}>Ver</button>}
+                      ? <button className="btn sm" onClick={() => abrirCobroVenta(p.venta)}>Cobrar</button>
+                      : <button className="btn linea sm" onClick={() => onNavigate?.('cobros')}>Ver</button>}
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Actividad reciente */}
-            <div className="dash-card dash-card-flex c-acti">
-              <div style={{ fontSize: 14.5, fontWeight: 600, flexShrink: 0 }}>Actividad reciente</div>
-              <div style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 6, flexShrink: 0 }}>Ventas, gastos y cobros</div>
-              <div className="dash-scroll">
+            <div className="card flexv c-acti">
+              <h3>Actividad reciente</h3>
+              <div className="sub">Ventas, gastos y cobros</div>
+              <div className="scrollea num">
                 {actividadReciente.length === 0 ? (
                   <p style={{ color: 'var(--texto-2)', fontSize: 13 }}>Sin actividad registrada.</p>
                 ) : actividadReciente.map(a => (
-                  <div key={a.id} className="num" style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--borde-suave)', fontSize: 12.5, alignItems: 'flex-start' }}>
-                    <div style={{ flex: 'none', width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, background: a.bg }}>{a.icon}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.titulo}</div>
-                      <div style={{ fontSize: 11, color: 'var(--texto-2)', marginTop: 1 }}>{a.subtitulo}</div>
+                  <div key={a.id} className="acti">
+                    <div className={`aic ${a.cls}`}>{a.icon}</div>
+                    <div>
+                      <div className="t1">{a.titulo}</div>
+                      <div className="t2">{a.subtitulo}</div>
                     </div>
-                    <div style={{ fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>{gs(a.monto)}</div>
+                    <div className="mm">{gs(a.monto)}</div>
                   </div>
                 ))}
               </div>
@@ -534,46 +517,47 @@ export default function Dashboard({ user, onNavigate }) {
         </div>
 
         {/* ── Columna derecha ── */}
-        <div className="dash-col" style={{ gridTemplateRows: rightColRows }}>
+        <div className="dder">
 
           {/* Tareas pendientes */}
           {puedeVerTareas && (
-            <div className="dash-card dash-card-flex c-tar">
-              <div style={{ fontSize: 14.5, fontWeight: 600, marginBottom: 2, flexShrink: 0 }}>Tareas pendientes</div>
-              <div style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 8, flexShrink: 0 }}>Círculo para completar · ✕ para eliminar</div>
-              <div className="dash-scroll" style={{ flex: 1 }}>
+            <div className="card flexv c-tar" style={{ paddingBottom: 10 }}>
+              <h3>Tareas pendientes</h3>
+              <div className="sub">Círculo para completar · ✕ para eliminar</div>
+              <div className="scrollea">
                 {checklist.length === 0 ? (
                   <div style={{ fontSize: 12, color: 'var(--texto-2)', textAlign: 'center', padding: '16px 0', lineHeight: 1.7 }}>
                     Sin tareas aún.<br />Agregá lo que tenés<br />pendiente hoy.
                   </div>
                 ) : checklist.map(item => (
-                  <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--borde-suave)' }}>
-                    <div onClick={() => toggleItem(item.id, item.hecha)} className={`check-circle ${item.hecha ? 'checked' : ''}`} style={{ marginTop: 1 }} />
-                    <span style={{ flex: 1, fontSize: 12.5, lineHeight: 1.45, cursor: 'pointer', textDecoration: item.hecha ? 'line-through' : 'none', color: item.hecha ? '#93a1bd' : 'var(--texto)' }} onClick={() => toggleItem(item.id, item.hecha)}>
+                  <div key={item.id} className={`tarea ${item.hecha ? 'hecha' : ''}`}>
+                    <span className="cc" onClick={() => toggleItem(item.id, item.hecha)} />
+                    <span className="tt" onClick={() => toggleItem(item.id, item.hecha)}>
                       {item.texto}
                       {user?.rol === 'Administrador' && item.visibilidad === 'todos' && (
                         <span style={{ marginLeft: 5, fontSize: 9, background: 'var(--azul-suave)', color: '#1e40af', borderRadius: 4, padding: '1px 4px', fontWeight: 600 }}>Todos</span>
                       )}
                     </span>
-                    <button onClick={() => eliminarItem(item.id)} style={{ flex: 'none', background: 'none', border: 'none', color: '#c4cede', fontSize: 14, cursor: 'pointer', padding: '0 2px', lineHeight: 1.4 }} title="Eliminar">✕</button>
+                    <button className="tx" onClick={() => eliminarItem(item.id)} title="Eliminar">✕</button>
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 9, flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 8, marginTop: 9 }}>
                 <input
+                  id="tIn"
                   value={nuevoItem}
                   onChange={e => setNuevoItem(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && agregarItem()}
                   placeholder="Agregar tarea…"
-                  style={{ flex: 1, fontSize: 12.5, padding: '7px 10px', border: '1px solid #cdd6e4', borderRadius: 9, background: '#fff', color: 'var(--texto)', outline: 'none' }}
+                  style={{ flex: 1, border: '1px solid #cdd6e4', borderRadius: 9, padding: '7px 10px', fontSize: 12.5, fontFamily: 'var(--ui)' }}
                 />
-                <button onClick={agregarItem} className="btn btn-green btn-sm">+</button>
+                <button className="btn sm" onClick={agregarItem}>+</button>
               </div>
               {user?.rol === 'Administrador' && (
                 <select
                   value={nuevaVis}
                   onChange={e => setNuevaVis(e.target.value)}
-                  style={{ marginTop: 6, fontSize: 11, padding: '4px 7px', border: '1px solid #cdd6e4', borderRadius: 8, background: '#fff', color: 'var(--texto-2)', cursor: 'pointer', flexShrink: 0 }}
+                  style={{ marginTop: 6, fontSize: 11, padding: '4px 7px', border: '1px solid #cdd6e4', borderRadius: 8, background: '#fff', color: 'var(--texto-2)', cursor: 'pointer' }}
                 >
                   <option value="admin">Solo administradores</option>
                   <option value="todos">Todos (usuarios con permiso)</option>
@@ -583,12 +567,12 @@ export default function Dashboard({ user, onNavigate }) {
           )}
 
           {/* Ingresos vs gastos — dona */}
-          <div className="dash-card c-donut" style={{ flexShrink: 0 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 600 }}>Ingresos vs gastos</div>
-            <div className="num" style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 10 }}>Últimos 6 meses (acumulado){rangoMeses ? ` · ${rangoMeses}` : ''}</div>
-            <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-              <svg width="90" height="90" viewBox="0 0 100 100" style={{ flexShrink: 0 }}>
-                <circle cx="50" cy="50" r="38" fill="none" stroke="var(--borde-suave)" strokeWidth="13" />
+          <div className="card c-donut">
+            <h3>Ingresos vs gastos</h3>
+            <div className="sub num">Últimos 6 meses (acumulado){rangoMeses ? ` · ${rangoMeses}` : ''}</div>
+            <div className="donutwrap">
+              <svg width="110" height="110" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="38" fill="none" stroke="#eef1f7" strokeWidth="13" />
                 {total6 > 0 && <>
                   <circle cx="50" cy="50" r="38" fill="none" stroke="#10b981" strokeWidth="13"
                     strokeDasharray={`${ingresosLen} ${CIRCUNF - ingresosLen}`}
@@ -598,73 +582,76 @@ export default function Dashboard({ user, onNavigate }) {
                     strokeDashoffset={-ingresosLen}
                     transform="rotate(-90 50 50)" />
                 </>}
-                <text x="50" y="47" textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--navy-900)">{formatCompacto(resultado6)}</text>
-                <text x="50" y="59" textAnchor="middle" fontSize="7" fill="var(--texto-2)">resultado</text>
+                <text x="50" y="47" textAnchor="middle" fontSize="10" fontWeight="700" fill="#12233f">{formatCompacto(resultado6)}</text>
+                <text x="50" y="59" textAnchor="middle" fontSize="7" fill="#5d6b85">resultado</text>
               </svg>
-              <div className="num" style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><i style={{ width: 10, height: 10, borderRadius: 3, background: '#10b981', flexShrink: 0 }} />Ingresos · {gs(ingresos6)}</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><i style={{ width: 10, height: 10, borderRadius: 3, background: '#f87171', flexShrink: 0 }} />Gastos · {gs(gastos6)}</span>
+              <div className="leg num">
+                <span><i style={{ background: '#10b981' }} />Ingresos · {gs(ingresos6)}</span>
+                <span><i style={{ background: '#f87171' }} />Gastos · {gs(gastos6)}</span>
               </div>
             </div>
           </div>
 
           {/* Ventas del mes por producto */}
-          <div className="dash-card dash-card-flex c-prod">
-            <div style={{ fontSize: 14.5, fontWeight: 600, marginBottom: 1, flexShrink: 0 }}>Ventas del mes por producto</div>
-            <div className="num" style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 10, flexShrink: 0 }}>
-              {ventasMesInfo.cantidad} venta{ventasMesInfo.cantidad === 1 ? '' : 's'} · {gs(ventasMesInfo.total)} Gs.
-            </div>
-            <div className="dash-scroll">
+          <div className="card flexv c-prod">
+            <h3>Ventas del mes por producto</h3>
+            <div className="sub num">{ventasMesInfo.cantidad} venta{ventasMesInfo.cantidad === 1 ? '' : 's'} · {gs(ventasMesInfo.total)} Gs.</div>
+            <div className="scrollea num">
               <ProductoBars productos={productosMes} />
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* ── Modal: registrar cobro de venta fiada ── */}
+      {/* ── Modal: registrar cobro de venta fiada (overlay/modal/m-head/m-body/m-pie literales) ── */}
       {modalCobroVenta && (
-        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setModalCobroVenta(null) }}>
+        <div className="overlay open" onClick={e => { if (e.target === e.currentTarget) setModalCobroVenta(null) }}>
           <div className="modal">
-            <h3>Registrar cobro</h3>
-            <p style={{ marginBottom: 4, fontSize: 14 }}>Cliente: <strong>{modalCobroVenta.cliente_nombre}</strong></p>
-            <p style={{ marginBottom: 4, fontSize: 14 }}>Venta N°: <strong>{String(modalCobroVenta.numero).padStart(4, '0')}</strong></p>
-            <p className="num" style={{ marginBottom: 16, fontSize: 14, color: 'var(--rojo)' }}>
-              Saldo: <strong>{gs(Number(modalCobroVenta.total) - (modalCobroVenta.venta_cobros?.reduce((s, vc) => s + Number(vc.monto), 0) || 0))} Gs.</strong>
-            </p>
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label>Fecha *</label>
-              <input type="date" value={cobroVentaForm.fecha} onChange={e => setCobroVentaForm({ ...cobroVentaForm, fecha: e.target.value })} />
+            <div className="m-head">
+              <h4>Registrar cobro · Venta {String(modalCobroVenta.numero).padStart(4, '0')}</h4>
+              <button className="m-x" onClick={() => setModalCobroVenta(null)}>✕</button>
             </div>
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label>Monto (Gs.) *</label>
-              <input type="number" min="1" value={cobroVentaForm.monto} onChange={e => setCobroVentaForm({ ...cobroVentaForm, monto: e.target.value })} />
-            </div>
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label>Forma de pago *</label>
-              <select value={cobroVentaForm.forma} onChange={e => setCobroVentaForm({ ...cobroVentaForm, forma: e.target.value, cuenta_id: '' })}>
-                <option value="efectivo">Efectivo</option>
-                <option value="transferencia">Transferencia</option>
-              </select>
-            </div>
-            {cobroVentaForm.forma === 'transferencia' && (
-              <div className="form-group" style={{ marginBottom: 20 }}>
-                <label>Cuenta *</label>
-                <select value={cobroVentaForm.cuenta_id} onChange={e => setCobroVentaForm({ ...cobroVentaForm, cuenta_id: e.target.value })}>
-                  <option value="">Seleccionar...</option>
-                  {cuentasPago.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                </select>
+            <div className="m-body">
+              <p className="num" style={{ marginBottom: 4, fontSize: 13 }}>Cliente: <b>{modalCobroVenta.cliente_nombre}</b></p>
+              <p className="num" style={{ marginBottom: 16, fontSize: 13, color: 'var(--rojo)' }}>
+                Saldo: <b>{gs(Number(modalCobroVenta.total) - (modalCobroVenta.venta_cobros?.reduce((s, vc) => s + Number(vc.monto), 0) || 0))} Gs.</b>
+              </p>
+              <div className="fgrid" style={{ marginBottom: 0 }}>
+                <div className="campo">
+                  <label>Fecha *</label>
+                  <input type="date" value={cobroVentaForm.fecha} onChange={e => setCobroVentaForm({ ...cobroVentaForm, fecha: e.target.value })} />
+                </div>
+                <div className="campo">
+                  <label>Monto (Gs.) *</label>
+                  <input type="number" className="num" min="1" value={cobroVentaForm.monto} onChange={e => setCobroVentaForm({ ...cobroVentaForm, monto: e.target.value })} />
+                </div>
+                <div className="campo">
+                  <label>Forma de pago *</label>
+                  <select value={cobroVentaForm.forma} onChange={e => setCobroVentaForm({ ...cobroVentaForm, forma: e.target.value, cuenta_id: '' })}>
+                    <option value="efectivo">Efectivo</option>
+                    <option value="transferencia">Transferencia</option>
+                  </select>
+                </div>
+                {cobroVentaForm.forma === 'transferencia' && (
+                  <div className="campo">
+                    <label>Cuenta *</label>
+                    <select value={cobroVentaForm.cuenta_id} onChange={e => setCobroVentaForm({ ...cobroVentaForm, cuenta_id: e.target.value })}>
+                      <option value="">Seleccionar...</option>
+                      {cuentasPago.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
-            )}
-            <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setModalCobroVenta(null)}>Cancelar</button>
-              <button className="btn btn-green" onClick={registrarCobroVenta} disabled={procesandoCobro}>{procesandoCobro ? 'Procesando...' : 'Confirmar cobro'}</button>
+            </div>
+            <div className="m-pie">
+              <button className="btn linea" onClick={() => setModalCobroVenta(null)}>Cancelar</button>
+              <button className="btn" onClick={registrarCobroVenta} disabled={procesandoCobro}>{procesandoCobro ? 'Procesando...' : 'Confirmar cobro'}</button>
             </div>
           </div>
         </div>
       )}
 
       {toast && <Toast text={toast.text} type={toast.type} onClose={() => setToast(null)} />}
-    </div>
+    </>
   )
 }

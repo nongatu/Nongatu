@@ -196,7 +196,7 @@ export default function Layout({ user, currentPage, onNavigate, onLogout, childr
           </div>
           <div style={{ width: 36 }} />
         </div>
-        <section className="vis">{children}</section>
+        <section id={currentPage === 'dashboard' ? 'inicio' : undefined} className="vis">{children}</section>
       </main>
 
       {toast && <Toast text={toast.text} type={toast.type} onClose={() => setToast(null)} />}
