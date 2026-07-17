@@ -427,8 +427,7 @@ export default function Dashboard({ user, onNavigate }) {
           <div style={{ fontFamily: 'var(--disp)', fontSize: 19, fontWeight: 600, letterSpacing: '-0.3px' }}>
             Bienvenida a Ñongatu, {nombreSaludo}
           </div>
-          <div style={{ fontSize: 11.5, color: '#c4d2f0', marginTop: 2 }}>{fechaCap}</div>
-          {frase && <div style={{ fontSize: 11.5, color: '#c4d2f0', marginTop: 2, fontStyle: 'italic' }}>{frase}</div>}
+          <div style={{ fontSize: 11.5, color: '#c4d2f0', marginTop: 2 }}>{fechaCap}{frase ? ` · ${frase}` : ''}</div>
           <div className="num" style={{ fontSize: 12, color: '#eaf0fd', marginTop: 6, display: 'flex', alignItems: 'center', gap: 7 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--hoja)', flexShrink: 0 }} />
             {parteTexto}

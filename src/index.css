@@ -245,6 +245,7 @@ h1, h2, h3, h4,
   padding: 2px 7px;
   flex-shrink: 0;
 }
+.nav-badge.nuevo { background: var(--hoja); color: #0b3d1f; }
 .nav-sep {
   font-size: 9.5px;
   letter-spacing: 1.2px;
