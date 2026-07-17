@@ -490,7 +490,7 @@ export default function Dashboard({ user, onNavigate }) {
 
           <div className="dash-row2">
             {/* Pendientes de cobro */}
-            <div className="dash-card-flex c-pend">
+            <div className="dash-card dash-card-flex c-pend">
               <div style={{ fontSize: 14.5, fontWeight: 600, flexShrink: 0 }}>Pendientes de cobro</div>
               <div className="num" style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 6, flexShrink: 0 }}>Total: {gs(porCobrarTotal)} Gs.</div>
               <div className="dash-scroll">
@@ -512,7 +512,7 @@ export default function Dashboard({ user, onNavigate }) {
             </div>
 
             {/* Actividad reciente */}
-            <div className="dash-card-flex c-acti">
+            <div className="dash-card dash-card-flex c-acti">
               <div style={{ fontSize: 14.5, fontWeight: 600, flexShrink: 0 }}>Actividad reciente</div>
               <div style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 6, flexShrink: 0 }}>Ventas, gastos y cobros</div>
               <div className="dash-scroll">
@@ -538,7 +538,7 @@ export default function Dashboard({ user, onNavigate }) {
 
           {/* Tareas pendientes */}
           {puedeVerTareas && (
-            <div className="dash-card-flex c-tar">
+            <div className="dash-card dash-card-flex c-tar">
               <div style={{ fontSize: 14.5, fontWeight: 600, marginBottom: 2, flexShrink: 0 }}>Tareas pendientes</div>
               <div style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 8, flexShrink: 0 }}>Círculo para completar · ✕ para eliminar</div>
               <div className="dash-scroll" style={{ flex: 1 }}>
@@ -609,7 +609,7 @@ export default function Dashboard({ user, onNavigate }) {
           </div>
 
           {/* Ventas del mes por producto */}
-          <div className="dash-card-flex c-prod">
+          <div className="dash-card dash-card-flex c-prod">
             <div style={{ fontSize: 14.5, fontWeight: 600, marginBottom: 1, flexShrink: 0 }}>Ventas del mes por producto</div>
             <div className="num" style={{ fontSize: 12, color: 'var(--texto-2)', marginBottom: 10, flexShrink: 0 }}>
               {ventasMesInfo.cantidad} venta{ventasMesInfo.cantidad === 1 ? '' : 's'} · {gs(ventasMesInfo.total)} Gs.
