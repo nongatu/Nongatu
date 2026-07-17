@@ -45,7 +45,8 @@ Módulo de Ventas y Gastos (migración `docs/migracion-ventas-gastos.sql`, 100% 
 - **ventas**: `numero` (secuencia propia `ventas_numero_seq`), `fecha`, `cliente_id`→clientes (nullable, `null` = consumidor final), `cliente_nombre`, `forma_pago` (`efectivo|transferencia|fiado`), `cuenta_id`→cuentas_pago, `estado` (`'pagada'|'pendiente'|'anulada'`), `fecha_vencimiento` (solo fiado), `observaciones`, `total`, `usuario` (varchar).
 - **venta_items**: `venta_id`→ventas (NOT NULL), `producto_id`→productos (NOT NULL), `cantidad`, `precio_unitario`, `subtotal`.
 - **venta_cobros**: cobros parciales/totales de ventas fiadas — `venta_id`→ventas (NOT NULL), `fecha`, `monto`, `forma` (`efectivo|transferencia`), `cuenta_id`→cuentas_pago, `usuario` (varchar).
-- **gastos**: todo al contado (sin cuentas por pagar) — `fecha`, `categoria_id`→categorias_gasto, `proveedor`, `descripcion` (NOT NULL), `monto`, `cuenta_id`→cuentas_pago, `nro_comprobante`, `usuario` (varchar).
+- **gastos**: todo al contado (sin cuentas por pagar) — `fecha`, `categoria_id`→categorias_gasto, `proveedor` (texto libre, legado), `proveedor_id`→proveedores, `descripcion` (NOT NULL), `monto`, `cuenta_id`→cuentas_pago, `nro_comprobante`, `usuario` (varchar).
+- **proveedores**: padrón propio para Gastos — `nombre_razon_social`, `ruc`, `cedula`, `rubro`, `telefono`, `email`, `direccion`, `observaciones`, `activo`.
 
 ## Arquitectura
 
@@ -58,11 +59,45 @@ Módulo de Ventas y Gastos (migración `docs/migracion-ventas-gastos.sql`, 100% 
 - **Deploy**: el repo vive en GitHub y Netlify tiene el deploy automático conectado (build en cada push). `netlify.toml` define build (`npm run build` → `dist`) y redirect SPA (`/* → /index.html`).
 - **NUNCA commitear `node_modules/` ni `dist/`**: deben estar siempre en `.gitignore`. Si por error quedan trackeados (por un commit hecho fuera de Claude Code, un merge, etc.), Netlify falla el build con `vite: Permission denied` (el binario pierde el bit de ejecución al pasar por git en Windows). Antes de investigar un fallo de build en Netlify, revisar primero con `git ls-tree -r <rama> --name-only | grep -E "^(node_modules|dist)/"` si se coló alguno de los dos; si aparece, limpiar con `git rm -r --cached node_modules dist`, confirmar `.gitignore`, commitear y recién ahí buscar otra causa.
 
+## Sistema de diseño "Ñongatu 2.0"
+La referencia visual y funcional de TODO el sistema es docs/nongatu-rediseno-final.html. Copiar de ahí colores, tipografías, espaciados y componentes. La estética anterior (tarjetas con degradados fuertes, emojis en el menú, azul plano #1e3a8a) queda ELIMINADA.
+
+### Tokens (definirlos como variables CSS en src/index.css y usarlos siempre)
+- Tinta principal --navy-900: #12233f · --navy-700: #1c355c
+- Sidebar: degradado vertical de --sb-top: #152a4d a --sb-bot: #1c46c8
+- Verde marca --hoja: #22c55e (acentos) · --verde: #15803d (botón primario) · --verde-suave: #ecfdf3
+- Rojo #dc2626 / #fef2f2 · Ámbar #b45309 / #fffbeb · Violeta #6d28d9 / #f5f3ff · Azul #1d4ed8 / #eff6ff
+- Fondo #f3f5f9 · Tarjeta #fff con borde #e4e9f2 y sombra 0 1px 2px rgba(18,35,63,.06)
+- Texto #1b2946 · Texto secundario #5d6b85 · Radio tarjetas 14px · botones/inputs 9-10px
+
+### Tipografía (Google Fonts, importadas en index.css)
+- Títulos y números grandes: 'Bricolage Grotesque' 600-700, letter-spacing negativo leve
+- Todo lo demás: 'IBM Plex Sans' 400-600
+- Números en tablas y montos: font-variant-numeric: tabular-nums (clase .num)
+
+### Componentes
+- Tarjetas KPI tintadas (no degradadas): fondo suave + borde del mismo tono + valor grande en Bricolage con el color fuerte (verde/rojo/violeta/ámbar según la métrica).
+- Pills/badges redondeadas 10.5px 600 con fondo suave (verde=pagado, ámbar=pendiente, rojo=fiado/no, azul=info, violeta=transferencia, gris=neutro).
+- Tablas: th en MAYÚSCULAS 10px letter-spacing .7px color #6a7896, filas con hover #f7f9fd, montos alineados a la derecha.
+- Franja de totales al pie de tabla: degradado horizontal #152a4d→#1c46c8, texto blanco 12px 600, bordes inferiores redondeados.
+- Modales SIEMPRE centrados y flotantes: fondo rgba(18,35,63,.45) con blur, tarjeta blanca radio 16px, header con título en Bricolage y botón ✕, pie con botones a la derecha; cierre con ESC y clic afuera.
+- Checkbox circular .check-circle: círculo 19px borde #9db0d0, al marcarse se llena de --hoja con tilde blanco.
+- Botones: primario verde #15803d, navy #1c355c, rojo #dc2626, azul #1d4ed8, "linea" (blanco con borde) para acciones secundarias; radio 10px, 600.
+
+### Sidebar (escritorio)
+232px, degradado --sb-top→--sb-bot, logo "ñongatu" en Bricolage con la "o" en --hoja, íconos SVG inline de trazo (stroke 1.7, sin emojis), ítem activo con fondo blanco translúcido y barrita verde a la izquierda, sección "Próximamente" (Salarios, Caja y Bancos deshabilitados con badge), tarjeta de usuario y Cerrar sesión abajo. Colapsable a 72px (solo íconos + tooltip), estado en localStorage — mantener la lógica de colapso y permisos (canSee) que ya existe.
+
+### Móvil (≤760px)
+El sidebar desaparece. Navegación con BARRA INFERIOR fija tipo app: Inicio, Clientes, Animales, Ventas y "Más" (los mismos SVG, label 10px, activo en azul con puntito verde). "Más" abre una hoja inferior (bottom sheet) con Cobros, Gastos, Reportes, Configuración, Salarios/Caja (pronto) y Cerrar sesión. Todo apilado verticalmente, tipografías y botones que NO se achican (targets táctiles ≥44px), formularios a una columna, respetar env(safe-area-inset-bottom).
+
+### Reglas
+- Español siempre; montos con gs() de src/utils/helpers.js.
+- Cambios de BD solo aditivos; schema.sql es la fuente de verdad; migraciones nuevas solo las que estén en docs/.
+- No romper lógica existente (pastaje, recibos, créditos, permisos, tareas).
+
 ## Reglas — Módulos Ventas y Gastos (Ñongatu)
 - NUNCA ejecutar ni proponer DROP, TRUNCATE ni DELETE sobre tablas o datos existentes de Supabase.
 - Cambios de base de datos SOLO aditivos. La migración ya está escrita en docs/migracion-ventas-gastos.sql: no inventar otra ni modificar tablas existentes más allá de lo que ese archivo indica.
-- EL DISEÑO ACTUAL NO SE CAMBIA: nada de fuentes nuevas, paletas nuevas ni rediseños. Todo lo nuevo usa las variables y clases existentes de src/index.css y los mismos patrones visuales (tarjetas de colores del dashboard, botones, badges, tablas, franja azul de totales). Si hace falta un estilo nuevo, se agrega a index.css siguiendo la estética actual.
-- La referencia visual y funcional de todo lo nuevo es docs/nongatu-maqueta-definitiva.html.
 - NO romper la lógica existente de Animales, Cobros de pastaje, Recibos, Créditos, Tareas, Login ni permisos. Respetar el sistema de permisos (user.permisos, rol Administrador) en todo lo nuevo.
 - Textos en español y montos con el helper gs() de src/utils/helpers.js (ej: 23.040.000 Gs.).
 - Trabajar siempre en la rama `ventas-gastos`. Commit al final de cada tarea con mensaje claro en español, y verificar que `npm run build` pase sin errores.
