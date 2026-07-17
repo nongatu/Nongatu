@@ -62,6 +62,15 @@ Módulo de Ventas y Gastos (migración `docs/migracion-ventas-gastos.sql`, 100% 
 ## Sistema de diseño "Ñongatu 2.0"
 La referencia visual y funcional de TODO el sistema es docs/nongatu-rediseno-final.html. Copiar de ahí colores, tipografías, espaciados y componentes. La estética anterior (tarjetas con degradados fuertes, emojis en el menú, azul plano #1e3a8a) queda ELIMINADA.
 
+### REGLA CRÍTICA — Copia literal, no reinterpretación
+docs/nongatu-rediseno-final.html no es "inspiración": es la fuente exacta que hay que copiar carácter por carácter. Vos (Claude Code) tenés terminal: NO leas el archivo "para entenderlo y después escribir tu propia versión" del CSS. En vez de eso, EXTRAÉ el contenido con un comando (por ejemplo `sed -n '/<style>/,/<\/style>/p' docs/nongatu-rediseno-final.html`) y pegá ese bloque completo, tal cual, en la sección de diseño de src/index.css. La única edición permitida sobre ese bloque extraído es la mínima necesaria para que compile en el proyecto real (por ejemplo, si hay un selector `body` o `html` que choque con algo de React, ajustalo puntualmente) — todo lo demás (padding, gap, border-radius, font-size, letter-spacing, box-shadow, nombres de variables) queda exactamente como está en el archivo. Extraer y pegar, no leer e interpretar.
+
+En el JSX de cada componente, usá EXACTAMENTE esos mismos nombres de clase (className="kpi verde", className="dgrid", className="bignum", etc.), no inventes nombres propios (nada de .dash-card, .dash-stats, .metric-cards, .dash-col, .dash-row2 ni equivalentes). Para asegurarte de esto, podés extraer también la lista de clases usadas en la sección correspondiente del HTML (`grep -oE 'class="[^"]*"' docs/nongatu-rediseno-final.html` filtrando la sección que corresponda) y usar SOLO esos nombres al escribir el componente — ninguno que no esté en esa lista. Si dos elementos se ven iguales en la maqueta, tienen que compartir la MISMA clase CSS del archivo, no dos clases distintas que casualmente quedan parecidas. Evitá estilos en línea (style={{...}}) para todo lo que ya tenga una clase en la maqueta: los inline styles son la causa más común de que el resultado final se vea "parecido pero no igual" — usalos solo para lo estrictamente dinámico (como el ancho de una barra según un porcentaje), nunca para tipografía, tamaños, colores o espaciados que ya están definidos en una clase.
+
+Al terminar cada pantalla, hacé una verificación explícita: extraé de nuevo el bloque CSS de esa sección desde el HTML de referencia y compará (con `diff`) contra lo que quedó en index.css — si hay líneas distintas, corregilas antes de dar la tarea por terminada. No me digas "quedó igual" sin haber corrido esa comparación.
+
+Sobre la tipografía en particular: verificá después de cada build que el @import de Google Fonts esté en la primera línea de index.css (antes de cualquier otra regla) y que, al abrir la app en el navegador, las herramientas de desarrollador (clic derecho → Inspeccionar → pestaña Network, filtrar por "font") muestren que fonts.googleapis.com efectivamente se descargó. Si esa petición falla o no aparece, no asumas que "ya está bien" solo porque el CSS dice font-family correcto: bajá las fuentes como archivos .woff2 al proyecto (carpeta src/assets/fonts) y declaralas con @font-face en vez de depender del @import externo, para que no dependan de la red en producción.
+
 ### Tokens (definirlos como variables CSS en src/index.css y usarlos siempre)
 - Tinta principal --navy-900: #12233f · --navy-700: #1c355c
 - Sidebar: degradado vertical de --sb-top: #152a4d a --sb-bot: #1c46c8
@@ -94,7 +103,6 @@ El sidebar desaparece. Navegación con BARRA INFERIOR fija tipo app: Inicio, Cli
 - Español siempre; montos con gs() de src/utils/helpers.js.
 - Cambios de BD solo aditivos; schema.sql es la fuente de verdad; migraciones nuevas solo las que estén en docs/.
 - No romper lógica existente (pastaje, recibos, créditos, permisos, tareas).
-- Ninguna pantalla se considera terminada solo por comparar capturas del usuario a simple vista: antes de decir que una pantalla "ya coincide" con docs/nongatu-rediseno-final.html, levantar el dev server, sacar una captura real (headless, ej. Playwright) de la pantalla y compararla lado a lado con una captura de la maqueta al mismo tamaño de viewport. Prestar atención en particular a que cada tarjeta/card tenga fondo, borde y padding visibles (clases combinadas correctamente, ej. dash-card + dash-card-flex) — un layout puede "verse bien" en la estructura y aun así faltarle el fondo blanco.
 
 ## Reglas — Módulos Ventas y Gastos (Ñongatu)
 - NUNCA ejecutar ni proponer DROP, TRUNCATE ni DELETE sobre tablas o datos existentes de Supabase.
