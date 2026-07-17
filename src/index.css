@@ -907,6 +907,7 @@ tr:hover td { background: var(--table-row-hover); }
   overflow-y: auto;
   min-height: 0;
 }
+.dash-card-flex .dash-scroll { flex: 1; }
 @media (max-width: 1080px) {
   .dash-shell { height: auto; overflow: visible; }
   .dash-body { grid-template-columns: 1fr; overflow: visible; }
@@ -917,6 +918,19 @@ tr:hover td { background: var(--table-row-hover); }
 }
 @media (max-width: 640px) {
   .dash-row2 { grid-template-columns: 1fr; }
+}
+
+/* Inicio en celular: orden fijo de tarjetas (Animales → Tareas → Pendientes →
+   Actividad → Dona ingresos/gastos → Ventas por producto) */
+@media (max-width: 760px) {
+  .dash-body { display: flex; flex-direction: column; gap: 13px; }
+  .dash-col, .dash-row2 { display: contents; }
+  .c-past  { order: 1; }
+  .c-tar   { order: 2; }
+  .c-pend  { order: 3; }
+  .c-acti  { order: 4; }
+  .c-donut { order: 5; }
+  .c-prod  { order: 6; }
 }
 
 .spinner { display: flex; justify-content: center; padding: 40px; }
