@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ñongatu 2.0 — Maqueta definitiva (escritorio + móvil)</title>
+<title>Ñongatu 2.0 — Maqueta definitiva (escritorio + móvil)</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 
@@ -203,16 +203,19 @@ td.n,th.n{text-align:right}
 .scrollea{overflow-y:auto;min-height:0}
 .card.flexv{display:flex;flex-direction:column;min-height:0}
 .card.flexv .scrollea{flex:1}
+/* Animales: números grandes por especie */
 .bigrow{display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap;margin:4px 0 6px}
 .bignum .bv{font-family:var(--disp);font-weight:700;font-size:46px;letter-spacing:-1.5px;line-height:1;color:var(--navy-900)}
 .bignum .bl{font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--texto-2);margin-top:4px}
 .bigtotal{margin-left:auto;text-align:right}
 .bigtotal .bv{color:var(--verde)}
+/* Donut */
 .donutwrap{display:flex;gap:14px;align-items:center}
 .donutwrap svg{flex:none}
 .leg{font-size:12px;display:flex;flex-direction:column;gap:6px}
 .leg span{display:flex;align-items:center;gap:7px}
 .leg i{width:10px;height:10px;border-radius:3px;flex:none}
+/* Pendientes de cobro */
 .pend{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #eef1f7;font-size:12.5px}
 .pend:last-child{border-bottom:none}
 .pend .p1{font-weight:600}
@@ -243,12 +246,15 @@ td.n,th.n{text-align:right}
   .bigrow{gap:16px}
   .bignum .bv{font-size:38px}
   .m-pie .btn{flex:1}
+  /* Orden del dashboard en celular */
   .dgrid{display:flex;flex-direction:column;gap:13px}
   .dcol,.dder,.d2{display:contents}
   #inicio .card{margin-bottom:0}
   .c-past{order:1}.c-tar{order:2}.c-pend{order:3}.c-acti{order:4}.c-donut{order:5}.c-prod{order:6}
   .c-acti .scrollea,.c-pend .scrollea{overflow:visible}
+  /* Formularios: siempre UNA sola columna */
   .fgrid>*{grid-column:auto!important}
+  /* Tablas → tarjetas apiladas (sin deslizar al costado) */
   table.mob thead{display:none}
   table.mob,table.mob tbody,table.mob tr,table.mob td{display:block;width:100%}
   table.mob tr{border:1px solid var(--borde);border-radius:12px;background:#fff;margin-bottom:10px;padding:10px 12px}
@@ -265,6 +271,7 @@ td.n,th.n{text-align:right}
   .t-gas td:last-child{justify-content:space-between;padding-top:4px}
   .t-gas td:last-child::before{content:"Monto";display:block}
   .faja{margin:6px 0 0;border-radius:12px}
+  /* Etiquetas por tabla */
   .t-cli td:nth-child(2)::before{content:"Tipo"}.t-cli td:nth-child(3)::before{content:"RUC"}
   .t-cli td:nth-child(4)::before{content:"Teléfono"}.t-cli td:nth-child(5)::before{content:"Dirección"}
   .t-ani td:nth-child(1){display:none}
@@ -290,6 +297,7 @@ td.n,th.n{text-align:right}
   .t-stk td:nth-child(6)::before{content:"Usuario"}
   .t-pag td:nth-child(2)::before{content:"Cliente"}.t-pag td:nth-child(3)::before{content:"Total"}
   .t-rec td:nth-child(2)::before{content:"Cliente"}.t-rec td:nth-child(3)::before{content:"Total"}
+  /* Barra inferior */
   .bnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:55;
     background:#fff;border-top:1px solid var(--borde);padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(18,35,63,.07)}
   .bnav button{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;
@@ -299,6 +307,7 @@ td.n,th.n{text-align:right}
   .bnav button.on::after{content:"";width:5px;height:5px;border-radius:50%;background:var(--hoja);margin-top:1px}
   .cinta{bottom:78px}
 }
+/* Hoja "Más" (móvil) */
 .sheet{position:fixed;inset:0;background:rgba(18,35,63,.45);z-index:58;align-items:flex-end}
 .sheet.open{display:flex}
 .sheet-in{background:#fff;width:100%;border-radius:18px 18px 0 0;padding:14px 16px calc(18px + env(safe-area-inset-bottom));
@@ -368,7 +377,7 @@ td.n,th.n{text-align:right}
       <div class="av">M</div>
       <div><div class="nom">marcos</div><div class="rol">Administrador</div></div>
     </div>
-    <button class="sb-salir">⏻ <span class="txt">Cerrar sesión</span></button>
+    <button class="sb-salir">↪ <span class="txt">Cerrar sesión</span></button>
   </div>
 </aside>
 
@@ -378,7 +387,7 @@ td.n,th.n{text-align:right}
 <section id="inicio" class="vis">
   <div class="saludo">
     <div>
-      <h1>Bienvenida a ñongatu, Marcos</h1>
+      <h1>Bienvenida a Ñongatu, Marcos</h1>
       <div class="f">Miércoles, 15 de julio de 2026 · ¡Un buen día para mantener todo bajo control!</div>
       <div class="parte num">Hoy: 2 ventas por 320.000 Gs. · ningún gasto todavía · 2 fiados por vencer esta semana.</div>
     </div>
@@ -423,9 +432,9 @@ td.n,th.n{text-align:right}
           <div class="scrollea num">
             <div class="acti"><div class="aic v">💰</div><div><div class="t1">Venta 0151 · Huevos 10 doc.</div><div class="t2">María Duarte · efectivo · hoy</div></div><div class="mm">200.000</div></div>
             <div class="acti"><div class="aic v">🥒</div><div><div class="t1">Venta 0150 · Pepinillos ×6</div><div class="t2">Consumidor final · hoy</div></div><div class="mm">120.000</div></div>
-            <div class="acti"><div class="aic r">💸</div><div><div class="t1">Gasto · Balanceado ponedoras</div><div class="t2">Coop. Fernheim · banco · ayer</div></div><div class="mm">2.800.000</div></div>
+            <div class="acti"><div class="aic r">📤</div><div><div class="t1">Gasto · Balanceado ponedoras</div><div class="t2">Coop. Fernheim · banco · ayer</div></div><div class="mm">2.800.000</div></div>
             <div class="acti"><div class="aic a">🧾</div><div><div class="t1">Venta fiada 0148 · Huevos 30 doc.</div><div class="t2">Despensa San José · vence 19/7</div></div><div class="mm">540.000</div></div>
-            <div class="acti"><div class="aic z">✔</div><div><div class="t1">Cobro pastaje · Julio 2026</div><div class="t2">Tomas Mendoza Gimenez · 13/7</div></div><div class="mm">23.040.000</div></div>
+            <div class="acti"><div class="aic z">✅</div><div><div class="t1">Cobro pastaje · Julio 2026</div><div class="t2">Tomas Mendoza Gimenez · 13/7</div></div><div class="mm">23.040.000</div></div>
             <div class="acti"><div class="aic v">🧀</div><div><div class="t1">Venta 0149 · Queso 4 kg</div><div class="t2">Tomas Mendoza · transferencia</div></div><div class="mm">160.000</div></div>
           </div>
         </div>
@@ -625,11 +634,11 @@ td.n,th.n{text-align:right}
       <table class="num mob t-ven">
         <thead><tr><th>N°</th><th>Fecha</th><th>Cliente</th><th>Detalle</th><th class="n">Total</th><th>Pago</th><th>Estado</th><th style="width:170px">Acciones</th></tr></thead>
         <tbody>
-          <tr><td><a href="#" onclick="abrir('m-venta');return false" style="font-weight:700;color:var(--azul)">0151</a></td><td>15/7</td><td>María Duarte</td><td>Huevos · 10 doc.</td><td class="n"><b>200.000</b></td><td><span class="pill pi-azul">Efectivo</span></td><td><span class="pill pi-verde">Pagada</span></td><td><button class="btn azul sm" onclick="toast('Abriría el ticket imprimible.')">Ticket</button> <button class="btn rojo sm" onclick="toast('Doble confirmación — elimina y devuelve stock.')">Eliminar</button></td></tr>
-          <tr><td><a href="#" onclick="abrir('m-venta');return false" style="font-weight:700;color:var(--azul)">0150</a></td><td>15/7</td><td>Consumidor final</td><td>Pepinillos · 6 frascos</td><td class="n"><b>120.000</b></td><td><span class="pill pi-azul">Efectivo</span></td><td><span class="pill pi-verde">Pagada</span></td><td><button class="btn azul sm" onclick="toast('Abriría el ticket imprimible.')">Ticket</button> <button class="btn rojo sm" onclick="toast('Doble confirmación — elimina y devuelve stock.')">Eliminar</button></td></tr>
-          <tr><td><a href="#" onclick="abrir('m-venta');return false" style="font-weight:700;color:var(--azul)">0149</a></td><td>12/7</td><td>Tomas Mendoza G.</td><td>Queso · 4 kg</td><td class="n"><b>160.000</b></td><td><span class="pill pi-viole">Transfer.</span></td><td><span class="pill pi-verde">Pagada</span></td><td><button class="btn azul sm" onclick="toast('Abriría el ticket imprimible.')">Ticket</button> <button class="btn rojo sm" onclick="toast('Doble confirmación — elimina y devuelve stock.')">Eliminar</button></td></tr>
-          <tr><td><a href="#" onclick="abrir('m-venta');return false" style="font-weight:700;color:var(--azul)">0148</a></td><td>12/7</td><td>Despensa San José</td><td>Huevos · 30 doc.</td><td class="n"><b>540.000</b></td><td><span class="pill pi-rojo">Fiado</span></td><td><span class="pill pi-ambar">Pendiente</span></td><td><button class="btn sm" onclick="abrir('m-cobro')">Cobrar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación — elimina y devuelve stock.')">Eliminar</button></td></tr>
-          <tr><td><a href="#" onclick="abrir('m-venta');return false" style="font-weight:700;color:var(--azul)">0146</a></td><td>11/7</td><td>Carnicería El Norte</td><td>Carne · 25 kg</td><td class="n"><b>800.000</b></td><td><span class="pill pi-rojo">Fiado</span></td><td><span class="pill pi-ambar">Pendiente</span></td><td><button class="btn sm" onclick="abrir('m-cobro')">Cobrar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación — elimina y devuelve stock.')">Eliminar</button></td></tr>
+          <tr><td><a href="#" onclick="abrir('m-venta');return false" style="font-weight:700;color:var(--azul)">0151</a></td><td>15/7</td><td>María Duarte</td><td>Huevos · 10 doc.</td><td class="n"><b>200.000</b></td><td><span class="pill pi-azul">Efectivo</span></td><td><span class="pill pi-verde">Pagada</span></td><td><button class="btn azul sm" onclick="toast('Abriría el ticket imprimible.')">Ticket</button> <button class="btn rojo sm" onclick="toast('Doble confirmación → elimina y devuelve stock.')">Eliminar</button></td></tr>
+          <tr><td><a href="#" onclick="abrir('m-venta');return false" style="font-weight:700;color:var(--azul)">0150</a></td><td>15/7</td><td>Consumidor final</td><td>Pepinillos · 6 frascos</td><td class="n"><b>120.000</b></td><td><span class="pill pi-azul">Efectivo</span></td><td><span class="pill pi-verde">Pagada</span></td><td><button class="btn azul sm" onclick="toast('Abriría el ticket imprimible.')">Ticket</button> <button class="btn rojo sm" onclick="toast('Doble confirmación → elimina y devuelve stock.')">Eliminar</button></td></tr>
+          <tr><td><a href="#" onclick="abrir('m-venta');return false" style="font-weight:700;color:var(--azul)">0149</a></td><td>12/7</td><td>Tomas Mendoza G.</td><td>Queso · 4 kg</td><td class="n"><b>160.000</b></td><td><span class="pill pi-viole">Transfer.</span></td><td><span class="pill pi-verde">Pagada</span></td><td><button class="btn azul sm" onclick="toast('Abriría el ticket imprimible.')">Ticket</button> <button class="btn rojo sm" onclick="toast('Doble confirmación → elimina y devuelve stock.')">Eliminar</button></td></tr>
+          <tr><td><a href="#" onclick="abrir('m-venta');return false" style="font-weight:700;color:var(--azul)">0148</a></td><td>12/7</td><td>Despensa San José</td><td>Huevos · 30 doc.</td><td class="n"><b>540.000</b></td><td><span class="pill pi-rojo">Fiado</span></td><td><span class="pill pi-ambar">Pendiente</span></td><td><button class="btn sm" onclick="abrir('m-cobro')">Cobrar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación → elimina y devuelve stock.')">Eliminar</button></td></tr>
+          <tr><td><a href="#" onclick="abrir('m-venta');return false" style="font-weight:700;color:var(--azul)">0146</a></td><td>11/7</td><td>Carnicería El Norte</td><td>Carne · 25 kg</td><td class="n"><b>800.000</b></td><td><span class="pill pi-rojo">Fiado</span></td><td><span class="pill pi-ambar">Pendiente</span></td><td><button class="btn sm" onclick="abrir('m-cobro')">Cobrar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación → elimina y devuelve stock.')">Eliminar</button></td></tr>
         </tbody>
       </table>
     </div>
@@ -666,9 +675,9 @@ td.n,th.n{text-align:right}
         <table class="num mob t-cre">
           <thead><tr><th>Cliente</th><th class="n">Monto</th><th>Tipo</th><th>Fecha pago</th><th>Período destino</th><th>Observación</th><th>Estado</th><th style="width:170px">Asignar / Eliminar</th></tr></thead>
           <tbody>
-            <tr><td><b>Tomas Mendoza Gimenez</b></td><td class="n">300.000</td><td><span class="pill pi-verde">Efectivo</span></td><td>9/7/2026</td><td>Desde Septiembre 2026</td><td>pago adelantado mes de setiembre</td><td><span class="pill pi-ambar">Pendiente</span></td><td><button class="btn viole sm" onclick="toast('Asignarías a un período de pastaje o a una VENTA FIADA del cliente.')">Asignar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación — elimina el crédito.')">Eliminar</button></td></tr>
-            <tr><td><b>Tomas Mendoza Gimenez</b></td><td class="n">60.000.000<div style="font-size:10.5px;color:var(--ambar);font-weight:600">Disponible: 19.960.000</div></td><td><span class="pill pi-viole">Transferencia</span></td><td>18/5/2026</td><td><span class="pill pi-azul">Mayo 2026</span> 13.300.000<br><span class="pill pi-azul">Junio 2026</span> 13.400.000<br><span class="pill pi-azul">Julio 2026</span> 13.340.000</td><td>N° 25992119</td><td><span class="pill pi-ambar">Pendiente</span></td><td><button class="btn viole sm" onclick="toast('Asignarías el disponible: pastaje o venta fiada.')">Asignar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación — elimina el crédito.')">Eliminar</button></td></tr>
-            <tr><td><b>Tomas Mendoza Gimenez</b></td><td class="n">8.500.000</td><td><span class="pill pi-verde">Efectivo</span></td><td>8/5/2026</td><td><span class="pill pi-azul">Julio 2026</span> 8.500.000</td><td>pago adelantado julio 2026</td><td><span class="pill pi-verde">Aplicado</span></td><td><button class="btn viole sm" onclick="toast('Reasignaría a otro período o a una venta fiada.')">Reasignar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación — elimina el crédito.')">Eliminar</button></td></tr>
+            <tr><td><b>Tomas Mendoza Gimenez</b></td><td class="n">300.000</td><td><span class="pill pi-verde">Efectivo</span></td><td>9/7/2026</td><td>Desde Septiembre 2026</td><td>pago adelantado mes de setiembre</td><td><span class="pill pi-ambar">Pendiente</span></td><td><button class="btn viole sm" onclick="toast('Asignarías a un período de pastaje o a una VENTA FIADA del cliente.')">Asignar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación → elimina el crédito.')">Eliminar</button></td></tr>
+            <tr><td><b>Tomas Mendoza Gimenez</b></td><td class="n">60.000.000<div style="font-size:10.5px;color:var(--ambar);font-weight:600">Disponible: 19.960.000</div></td><td><span class="pill pi-viole">Transferencia</span></td><td>18/5/2026</td><td><span class="pill pi-azul">Mayo 2026</span> 13.300.000<br><span class="pill pi-azul">Junio 2026</span> 13.400.000<br><span class="pill pi-azul">Julio 2026</span> 13.340.000</td><td>N° 25992119</td><td><span class="pill pi-ambar">Pendiente</span></td><td><button class="btn viole sm" onclick="toast('Asignarías el disponible: pastaje o venta fiada.')">Asignar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación → elimina el crédito.')">Eliminar</button></td></tr>
+            <tr><td><b>Tomas Mendoza Gimenez</b></td><td class="n">8.500.000</td><td><span class="pill pi-verde">Efectivo</span></td><td>8/5/2026</td><td><span class="pill pi-azul">Julio 2026</span> 8.500.000</td><td>pago adelantado julio 2026</td><td><span class="pill pi-verde">Aplicado</span></td><td><button class="btn viole sm" onclick="toast('Reasignaría a otro período o a una venta fiada.')">Reasignar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación → elimina el crédito.')">Eliminar</button></td></tr>
           </tbody>
         </table>
       </div>
@@ -889,9 +898,9 @@ td.n,th.n{text-align:right}
         <table class="num mob t-stk">
           <thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th class="n">Cantidad</th><th>Observación</th><th>Usuario</th><th style="width:150px"></th></tr></thead>
           <tbody>
-            <tr><td>15/7</td><td>Huevos</td><td><span class="pill pi-verde">Producción</span></td><td class="n">+18 doc.</td><td>Juntada de la mañana</td><td>marcos</td><td><button class="btn linea sm" onclick="abrir('m-prod')">Editar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación — elimina el movimiento y recalcula el stock.')">Eliminar</button></td></tr>
-            <tr><td>14/7</td><td>Queso</td><td><span class="pill pi-verde">Producción</span></td><td class="n">+6 kg</td><td>Tanda semanal</td><td>dahianakrause</td><td><button class="btn linea sm" onclick="abrir('m-prod')">Editar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación — elimina el movimiento y recalcula el stock.')">Eliminar</button></td></tr>
-            <tr><td>13/7</td><td>Huevos</td><td><span class="pill pi-ambar">Ajuste</span></td><td class="n">−2 doc.</td><td>Rotura en el traslado</td><td>marcos</td><td><button class="btn linea sm" onclick="abrir('m-prod')">Editar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación — elimina el movimiento y recalcula el stock.')">Eliminar</button></td></tr>
+            <tr><td>15/7</td><td>Huevos</td><td><span class="pill pi-verde">Producción</span></td><td class="n">+18 doc.</td><td>Juntada de la mañana</td><td>marcos</td><td><button class="btn linea sm" onclick="abrir('m-prod')">Editar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación → elimina el movimiento y recalcula el stock.')">Eliminar</button></td></tr>
+            <tr><td>14/7</td><td>Queso</td><td><span class="pill pi-verde">Producción</span></td><td class="n">+6 kg</td><td>Tanda semanal</td><td>dahianakrause</td><td><button class="btn linea sm" onclick="abrir('m-prod')">Editar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación → elimina el movimiento y recalcula el stock.')">Eliminar</button></td></tr>
+            <tr><td>13/7</td><td>Huevos</td><td><span class="pill pi-ambar">Ajuste</span></td><td class="n">−2 doc.</td><td>Rotura en el traslado</td><td>marcos</td><td><button class="btn linea sm" onclick="abrir('m-prod')">Editar</button> <button class="btn rojo sm" onclick="toast('Doble confirmación → elimina el movimiento y recalcula el stock.')">Eliminar</button></td></tr>
           </tbody>
         </table>
       </div>
@@ -995,7 +1004,7 @@ td.n,th.n{text-align:right}
     <div class="m-pie">
       <button class="btn linea" onclick="toast('Abriría el formulario de edición y recalcularía stock y totales.')">Editar venta</button>
       <button class="btn linea" onclick="toast('Abriría el ticket imprimible.')">Ticket</button>
-      <button class="btn rojo" onclick="toast('Doble confirmación — elimina y devuelve el stock.')">Eliminar</button>
+      <button class="btn rojo" onclick="toast('Doble confirmación → elimina y devuelve el stock.')">Eliminar</button>
       <button class="btn" onclick="cerrar();abrir('m-cobro')">Cobrar</button>
     </div>
   </div>
@@ -1068,7 +1077,7 @@ td.n,th.n{text-align:right}
     </div>
     <div class="m-pie">
       <button class="btn linea" onclick="toast('Abriría el formulario de edición.')">Editar</button>
-      <button class="btn rojo" onclick="toast('Doble confirmación — elimina el gasto.')">Eliminar</button>
+      <button class="btn rojo" onclick="toast('Doble confirmación → elimina el gasto.')">Eliminar</button>
       <button class="btn navy" onclick="cerrar()">Cerrar</button>
     </div>
   </div>
@@ -1144,7 +1153,7 @@ td.n,th.n{text-align:right}
   </div>
 </div>
 
-<div class="cinta">Maqueta ñongatu 2.0 · datos de ejemplo</div>
+<div class="cinta">Maqueta Ñongatu 2.0 · datos de ejemplo</div>
 <div id="toast"></div>
 
 <script>
@@ -1204,7 +1213,7 @@ const CLIENTES=[
   {n:'María Duarte',r:'',c:'4123998',t:'Ventas'},
   {n:'Alain Paul Henri Chassagne',r:'3548640-6',c:'3548640',t:'Pastaje'},
 ];
-function norm(s){return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')}
+function norm(s){return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')}
 function makeAC(inp,ls,ok,conCrear){
   function pinta(lista){
     ls.innerHTML='';
